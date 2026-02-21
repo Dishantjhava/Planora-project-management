@@ -13,6 +13,11 @@ const ROLES = [
   'QA Engineer', 'DevOps Engineer', 'Data Analyst', 'Product Owner'
 ];
 
+const TASK_CATEGORIES = [
+  'Design', 'Development', 'Testing', 'Research',
+  'Documentation', 'Review', 'Deployment', 'Planning'
+];
+
 const Dashboard = ({ onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -29,9 +34,21 @@ const Dashboard = ({ onLogout }) => {
   const [showTeamModal, setShowTeamModal]        = useState(false);
   const [inviteForm, setInviteForm]              = useState({ name: '', email: '', role: 'Frontend Dev' });
   const [inviteErrors, setInviteErrors]          = useState({});
-  const [inviteStep, setInviteStep]              = useState(1); // 1=form, 2=success
+  const [inviteStep, setInviteStep]              = useState(1);
   const [pendingInvites, setPendingInvites]      = useState(() => {
     const saved = localStorage.getItem('planora_invites');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // ── Add Task State ────────────────────────────────────────────────
+  const [showAddTask, setShowAddTask]       = useState(false);
+  const [taskForm, setTaskForm]             = useState({
+    title: '', description: '', projectId: '', assigneeId: '',
+    priority: 'medium', dueDate: '', category: 'Development', status: 'todo'
+  });
+  const [taskFormErrors, setTaskFormErrors] = useState({});
+  const [tasks, setTasks]                   = useState(() => {
+    const saved = localStorage.getItem('planora_tasks');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -44,7 +61,6 @@ const Dashboard = ({ onLogout }) => {
       { id: 4, name: 'John Smith',  role: 'Frontend Dev',    avatar: 'JS', status: 'offline', color: '#ec4899' },
     ];
   });
-  // ─────────────────────────────────────────────────────────────────
 
   const [projects, setProjects] = useState(() => {
     const saved = localStorage.getItem('planora_projects');
@@ -75,13 +91,19 @@ const Dashboard = ({ onLogout }) => {
   useEffect(() => { localStorage.setItem('planora_projects', JSON.stringify(projects)); }, [projects]);
   useEffect(() => { localStorage.setItem('planora_team',     JSON.stringify(teamMembers)); }, [teamMembers]);
   useEffect(() => { localStorage.setItem('planora_invites',  JSON.stringify(pendingInvites)); }, [pendingInvites]);
+  useEffect(() => { localStorage.setItem('planora_tasks',    JSON.stringify(tasks)); }, [tasks]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); document.querySelector('.search-bar input')?.focus(); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); handleAddProject(); }
-      if (e.key === 'Escape') { setShowAddProject(false); setSelectedProject(null); setShowInviteModal(false); setShowTeamModal(false); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 't') { e.preventDefault(); openAddTaskModal(); }
+      if (e.key === 'Escape') {
+        setShowAddProject(false); setSelectedProject(null);
+        setShowInviteModal(false); setShowTeamModal(false);
+        setShowAddTask(false);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -95,6 +117,71 @@ const Dashboard = ({ onLogout }) => {
 
   const getInitials = (name) =>
     name.trim().split(' ').slice(0, 2).map(w => w[0].toUpperCase()).join('');
+
+  // ── Task logic ────────────────────────────────────────────────────
+  const openAddTaskModal = (preselectedProjectId = '') => {
+    setTaskForm({
+      title: '', description: '',
+      projectId: preselectedProjectId || (projects[0]?.id?.toString() || ''),
+      assigneeId: '', priority: 'medium',
+      dueDate: '', category: 'Development', status: 'todo'
+    });
+    setTaskFormErrors({});
+    setShowAddTask(true);
+  };
+
+  const validateTaskForm = () => {
+    const errors = {};
+    if (!taskForm.title.trim())   errors.title     = 'Task title is required';
+    if (!taskForm.projectId)      errors.projectId = 'Please select a project';
+    if (!taskForm.dueDate)        errors.dueDate   = 'Due date is required';
+    setTaskFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveTask = () => {
+    if (!validateTaskForm()) return;
+
+    const assignee = teamMembers.find(m => m.id === parseInt(taskForm.assigneeId));
+    const project  = projects.find(p => p.id === parseInt(taskForm.projectId));
+
+    const newTask = {
+      id:          Date.now(),
+      title:       taskForm.title.trim(),
+      description: taskForm.description.trim(),
+      projectId:   parseInt(taskForm.projectId),
+      projectName: project?.name || '',
+      assigneeId:  assignee ? parseInt(taskForm.assigneeId) : null,
+      assignee:    assignee || null,
+      priority:    taskForm.priority,
+      dueDate:     taskForm.dueDate,
+      category:    taskForm.category,
+      status:      taskForm.status,
+      createdAt:   new Date().toISOString(),
+    };
+
+    setTasks(prev => [newTask, ...prev]);
+
+    // bump the project's task count
+    setProjects(prev => prev.map(p =>
+      p.id === parseInt(taskForm.projectId)
+        ? { ...p, tasks: p.tasks + 1 }
+        : p
+    ));
+
+    // add a notification
+    setNotifications(prev => [{
+      id:      Date.now(),
+      title:   'New task created',
+      message: `"${newTask.title}" added to ${project?.name}${assignee ? ` · Assigned to ${assignee.name}` : ''}`,
+      time:    'Just now',
+      read:    false,
+      type:    'task',
+    }, ...prev]);
+
+    showToast(`Task "${newTask.title}" created successfully! ✅`);
+    setShowAddTask(false);
+  };
 
   // ── Invite logic ──────────────────────────────────────────────────
   const validateInvite = () => {
@@ -124,7 +211,6 @@ const Dashboard = ({ onLogout }) => {
       sentAt:  new Date().toLocaleString(),
     };
     setPendingInvites(prev => [...prev, invite]);
-    // Add a notification
     setNotifications(prev => [{
       id:      Date.now(),
       title:   'Invite Sent',
@@ -289,6 +375,15 @@ const Dashboard = ({ onLogout }) => {
   const completedTasks = projects.reduce((s, p) => s + p.completedTasks, 0);
   const overallProgress = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // helper: days until due
+  const getDaysUntil = (dateStr) => {
+    const diff = Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+    if (diff < 0)  return { label: 'Overdue', cls: 'overdue' };
+    if (diff === 0) return { label: 'Due today', cls: 'today' };
+    if (diff === 1) return { label: 'Tomorrow', cls: 'soon' };
+    return { label: `${diff}d left`, cls: diff <= 3 ? 'soon' : 'ok' };
+  };
+
   // ── Render ────────────────────────────────────────────────────────
   return (
     <div className="dashboard-container">
@@ -321,7 +416,6 @@ const Dashboard = ({ onLogout }) => {
             <svg viewBox="0 0 24 24" fill="none"><path d="M9 11L12 14L22 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 12V19C21 19.53 20.79 20.04 20.41 20.41C20.04 20.79 19.53 21 19 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Projects</span>}
           </a>
-          {/* Team link opens team modal */}
           <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); setShowTeamModal(true); }}>
             <svg viewBox="0 0 24 24" fill="none"><path d="M17 21V19C17 17.93 16.58 16.92 15.83 16.17C15.08 15.42 14.06 15 13 15H5C3.93 15 2.92 15.42 2.17 16.17C1.42 16.92 1 17.93 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M23 21V19C23 18.04 22.67 17.14 22.09 16.43" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M16 3.13C16.9 3.36 17.68 3.89 18.24 4.62C18.8 5.36 19.1 6.26 19.1 7.19C19.1 8.12 18.8 9.02 18.24 9.76" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Team</span>}
@@ -356,12 +450,24 @@ const Dashboard = ({ onLogout }) => {
               <input type="text" placeholder="Search projects… (Ctrl+K)" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}/>
               {searchQuery && <button className="clear-search" onClick={() => setSearchQuery('')}>✕</button>}
             </div>
+
+            {/* ── ADD TASK BUTTON ── */}
+            <button className="add-task-btn" onClick={() => openAddTaskModal()} title="Add Task (Ctrl+T)">
+              <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+                <path d="M9 11L12 14L22 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M21 12V19C21 19.53 20.79 20.04 20.41 20.41C20.04 20.79 19.53 21 19 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span>Add Task</span>
+              {tasks.length > 0 && <span className="task-count-badge">{tasks.length}</span>}
+            </button>
+
             {/* Invite Button */}
             <button className="invite-btn" onClick={openInviteModal} title="Invite Team Member">
               <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M16 11C18.21 11 20 9.21 20 7C20 4.79 18.21 3 16 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18 22C18 20.44 17.29 19.04 16.18 18.09C15.07 17.14 13.59 16.57 12 16.57" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 11C11.21 11 13 9.21 13 7C13 4.79 11.21 3 9 3C6.79 3 5 4.79 5 7C5 9.21 6.79 11 9 11Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 22V21C1 18.24 3.24 16 6 16H12C14.76 16 17 18.24 17 21V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="20" y1="8" x2="20" y2="14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="17" y1="11" x2="23" y2="11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
               {sidebarOpen !== false && <span>Invite</span>}
               {pendingInvites.length > 0 && <span className="invite-badge">{pendingInvites.length}</span>}
             </button>
+
             {/* Notifications */}
             <div className="notification-wrapper">
               <button className="icon-button" onClick={() => setShowNotifications(!showNotifications)}>
@@ -396,6 +502,7 @@ const Dashboard = ({ onLogout }) => {
                 </div>
               )}
             </div>
+
             {/* User */}
             <div className="user-menu">
               <div className="user-avatar">
@@ -431,7 +538,7 @@ const Dashboard = ({ onLogout }) => {
           {/* Main Grid */}
           <div className="dashboard-grid">
             {/* Projects */}
-            <div className="dashboard-section projects-section">
+            <div className="projects-section">
               <div className="card">
                 <div className="card-header">
                   <h3>Projects ({filteredProjects.length})</h3>
@@ -444,6 +551,11 @@ const Dashboard = ({ onLogout }) => {
                       <option value="deadline">Sort by Deadline</option>
                       <option value="progress">Sort by Progress</option>
                     </select>
+                    {/* Add Task button inside projects card */}
+                    <button className="btn-task-small" onClick={() => openAddTaskModal()}>
+                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
+                      Add Task
+                    </button>
                     <button className="btn-primary-small" onClick={handleAddProject}>
                       <svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
                       New Project
@@ -468,7 +580,18 @@ const Dashboard = ({ onLogout }) => {
                             {project.priority.toUpperCase()}
                           </span>
                         </div>
-                        <span className={`status-badge status-${project.status.toLowerCase().replace(' ','-')}`}>{project.status}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span className={`status-badge status-${project.status.toLowerCase().replace(' ','-')}`}>{project.status}</span>
+                          {/* Quick Add Task per project */}
+                          <button
+                            className="btn-task-inline"
+                            title="Add task to this project"
+                            onClick={(e) => { e.stopPropagation(); openAddTaskModal(project.id.toString()); }}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
+                            Task
+                          </button>
+                        </div>
                       </div>
                       <div className="project-meta">
                         <span className="project-team">
@@ -493,6 +616,43 @@ const Dashboard = ({ onLogout }) => {
                           <div className="progress-fill" style={{ width: `${project.progress}%`, backgroundColor: project.progress >= 75 ? '#10b981' : project.progress >= 50 ? '#f59e0b' : '#6366f1' }}></div>
                         </div>
                       </div>
+
+                      {/* Tasks for this project */}
+                      {tasks.filter(t => t.projectId === project.id).length > 0 && (
+                        <div className="project-tasks-preview">
+                          <div className="tasks-preview-header">
+                            <span>Tasks ({tasks.filter(t => t.projectId === project.id).length})</span>
+                          </div>
+                          <div className="tasks-preview-list">
+                            {tasks.filter(t => t.projectId === project.id).slice(0, 3).map(task => {
+                              const due = getDaysUntil(task.dueDate);
+                              const assignee = task.assignee;
+                              return (
+                                <div key={task.id} className="task-preview-item">
+                                  <div className={`task-status-dot task-status-${task.status}`}></div>
+                                  <span className="task-preview-title">{task.title}</span>
+                                  <div className="task-preview-meta">
+                                    {assignee && (
+                                      <div className="task-assignee-mini" style={{ backgroundColor: assignee.color }} title={assignee.name}>
+                                        {assignee.avatar}
+                                      </div>
+                                    )}
+                                    <span className={`task-due-mini due-${due.cls}`}>{due.label}</span>
+                                    <span className={`task-priority-mini priority-${task.priority}`}>
+                                      {task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢'}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {tasks.filter(t => t.projectId === project.id).length > 3 && (
+                              <div className="tasks-preview-more">
+                                +{tasks.filter(t => t.projectId === project.id).length - 3} more tasks
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )) : (
                     <div className="empty-state">
@@ -575,7 +735,6 @@ const Dashboard = ({ onLogout }) => {
                       +{teamMembers.length - 4} more members
                     </button>
                   )}
-                  {/* Pending invites preview */}
                   {pendingInvites.length > 0 && (
                     <div className="pending-preview">
                       <span className="pending-label">⏳ {pendingInvites.length} pending invite{pendingInvites.length > 1 ? 's' : ''}</span>
@@ -609,6 +768,187 @@ const Dashboard = ({ onLogout }) => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
+          ADD TASK MODAL
+      ═══════════════════════════════════════════════════════════ */}
+      {showAddTask && (
+        <div className="modal-overlay" onClick={() => setShowAddTask(false)}>
+          <div className="modal task-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2>Add New Task</h2>
+                <p className="modal-subtitle">Assign a task to a project and team member</p>
+              </div>
+              <button className="modal-close" onClick={() => setShowAddTask(false)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+
+              {/* Task Title */}
+              <div className="form-group">
+                <label>Task Title *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Design login screen mockups"
+                  value={taskForm.title}
+                  onChange={e => setTaskForm({ ...taskForm, title: e.target.value })}
+                  className={taskFormErrors.title ? 'error' : ''}
+                  autoFocus
+                />
+                {taskFormErrors.title && <span className="error-text">{taskFormErrors.title}</span>}
+              </div>
+
+              {/* Description */}
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  placeholder="Describe what needs to be done…"
+                  rows="3"
+                  value={taskForm.description}
+                  onChange={e => setTaskForm({ ...taskForm, description: e.target.value })}
+                />
+              </div>
+
+              {/* Project + Category row */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Project *</label>
+                  <select
+                    value={taskForm.projectId}
+                    onChange={e => setTaskForm({ ...taskForm, projectId: e.target.value })}
+                    className={taskFormErrors.projectId ? 'error' : ''}
+                  >
+                    <option value="">— Select project —</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  {taskFormErrors.projectId && <span className="error-text">{taskFormErrors.projectId}</span>}
+                </div>
+                <div className="form-group">
+                  <label>Category</label>
+                  <select value={taskForm.category} onChange={e => setTaskForm({ ...taskForm, category: e.target.value })}>
+                    {TASK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Assignee */}
+              <div className="form-group">
+                <label>Assign To</label>
+                <div className="assignee-selector">
+                  <div
+                    className={`assignee-option ${taskForm.assigneeId === '' ? 'selected' : ''}`}
+                    onClick={() => setTaskForm({ ...taskForm, assigneeId: '' })}
+                    title="Unassigned"
+                  >
+                    <div className="assignee-avatar unassigned">?</div>
+                    <span>Unassigned</span>
+                  </div>
+                  {teamMembers.map(m => (
+                    <div
+                      key={m.id}
+                      className={`assignee-option ${taskForm.assigneeId === m.id.toString() ? 'selected' : ''}`}
+                      onClick={() => setTaskForm({ ...taskForm, assigneeId: m.id.toString() })}
+                      title={`${m.name} · ${m.role}`}
+                    >
+                      <div className="assignee-avatar" style={{ backgroundColor: m.color }}>
+                        {m.avatar}
+                        <span className={`status-indicator ${m.status}`}></span>
+                      </div>
+                      <span>{m.name.split(' ')[0]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Priority + Status row */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Priority</label>
+                  <div className="priority-selector">
+                    {[['high','🔴 High'], ['medium','🟡 Medium'], ['low','🟢 Low']].map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        className={`priority-option priority-opt-${val} ${taskForm.priority === val ? 'selected' : ''}`}
+                        onClick={() => setTaskForm({ ...taskForm, priority: val })}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select value={taskForm.status} onChange={e => setTaskForm({ ...taskForm, status: e.target.value })}>
+                    <option value="todo">To Do</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="review">In Review</option>
+                    <option value="done">Done</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Due Date */}
+              <div className="form-group">
+                <label>Due Date *</label>
+                <input
+                  type="date"
+                  value={taskForm.dueDate}
+                  onChange={e => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                  className={taskFormErrors.dueDate ? 'error' : ''}
+                />
+                {taskFormErrors.dueDate && <span className="error-text">{taskFormErrors.dueDate}</span>}
+              </div>
+
+              {/* Live Preview */}
+              {taskForm.title && (
+                <div className="task-preview-card">
+                  <div className="task-preview-label">Preview</div>
+                  <div className="task-preview-inner">
+                    <div className="task-preview-row">
+                      <div className={`task-status-dot task-status-${taskForm.status}`}></div>
+                      <span className="task-preview-name">{taskForm.title}</span>
+                      <span className={`priority-badge priority-${taskForm.priority}`}>
+                        {taskForm.priority === 'high' ? '🔴' : taskForm.priority === 'medium' ? '🟡' : '🟢'} {taskForm.priority}
+                      </span>
+                    </div>
+                    <div className="task-preview-details">
+                      {taskForm.projectId && (
+                        <span className="task-preview-chip">
+                          📁 {projects.find(p => p.id.toString() === taskForm.projectId)?.name}
+                        </span>
+                      )}
+                      {taskForm.assigneeId && (
+                        <span className="task-preview-chip">
+                          👤 {teamMembers.find(m => m.id.toString() === taskForm.assigneeId)?.name}
+                        </span>
+                      )}
+                      {taskForm.dueDate && (
+                        <span className={`task-preview-chip due-chip-${getDaysUntil(taskForm.dueDate).cls}`}>
+                          📅 {getDaysUntil(taskForm.dueDate).label}
+                        </span>
+                      )}
+                      <span className="task-preview-chip">🏷 {taskForm.category}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowAddTask(false)}>Cancel</button>
+              <button className="btn-primary" onClick={handleSaveTask}>
+                <svg viewBox="0 0 24 24" fill="none" width="16" height="16" style={{ marginRight: '0.4rem' }}>
+                  <path d="M9 11L12 14L22 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M21 12V19C21 19.53 20.79 20.04 20.41 20.41C20.04 20.79 19.53 21 19 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Create Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════
           INVITE TEAM MEMBER MODAL
       ═══════════════════════════════════════════════════════════ */}
       {showInviteModal && (
@@ -626,25 +966,16 @@ const Dashboard = ({ onLogout }) => {
                 <div className="modal-body">
                   <div className="form-group">
                     <label>Full Name *</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Alex Johnson"
-                      value={inviteForm.name}
+                    <input type="text" placeholder="e.g. Alex Johnson" value={inviteForm.name}
                       onChange={e => setInviteForm({ ...inviteForm, name: e.target.value })}
-                      className={inviteErrors.name ? 'error' : ''}
-                      autoFocus
-                    />
+                      className={inviteErrors.name ? 'error' : ''} autoFocus/>
                     {inviteErrors.name && <span className="error-text">{inviteErrors.name}</span>}
                   </div>
                   <div className="form-group">
                     <label>Email Address *</label>
-                    <input
-                      type="email"
-                      placeholder="e.g. alex@company.com"
-                      value={inviteForm.email}
+                    <input type="email" placeholder="e.g. alex@company.com" value={inviteForm.email}
                       onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })}
-                      className={inviteErrors.email ? 'error' : ''}
-                    />
+                      className={inviteErrors.email ? 'error' : ''}/>
                     {inviteErrors.email && <span className="error-text">{inviteErrors.email}</span>}
                   </div>
                   <div className="form-group">
@@ -653,7 +984,6 @@ const Dashboard = ({ onLogout }) => {
                       {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
-                  {/* Avatar preview */}
                   <div className="invite-preview">
                     <div className="invite-preview-avatar" style={{ backgroundColor: AVATAR_COLORS[2] }}>
                       {inviteForm.name ? getInitials(inviteForm.name) : '?'}
@@ -677,7 +1007,6 @@ const Dashboard = ({ onLogout }) => {
                 </div>
               </>
             ) : (
-              /* Success step */
               <>
                 <div className="modal-header" style={{ borderBottom: 'none' }}>
                   <button className="modal-close" onClick={() => setShowInviteModal(false)}>✕</button>
@@ -721,7 +1050,6 @@ const Dashboard = ({ onLogout }) => {
               </div>
             </div>
             <div className="modal-body" style={{ padding: 0 }}>
-              {/* Active Members */}
               <div className="team-section">
                 <div className="team-section-header">
                   <h4>Active Members</h4>
@@ -753,8 +1081,6 @@ const Dashboard = ({ onLogout }) => {
                   ))}
                 </div>
               </div>
-
-              {/* Pending Invites */}
               {pendingInvites.length > 0 && (
                 <div className="team-section">
                   <div className="team-section-header">
@@ -775,10 +1101,8 @@ const Dashboard = ({ onLogout }) => {
                         </div>
                         <div className="member-actions">
                           <span className="status-pill pending-pill">⏳ Pending</span>
-                          <button className="btn-accept" onClick={() => handleAcceptInvite(invite)} title="Accept (simulate join)">
-                            ✓ Accept
-                          </button>
-                          <button className="btn-remove" onClick={() => handleRevokeInvite(invite.id)} title="Revoke invite">
+                          <button className="btn-accept" onClick={() => handleAcceptInvite(invite)}>✓ Accept</button>
+                          <button className="btn-remove" onClick={() => handleRevokeInvite(invite.id)}>
                             <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                           </button>
                         </div>
@@ -914,9 +1238,46 @@ const Dashboard = ({ onLogout }) => {
                 </div>
                 <div className="tasks-summary">{selectedProject.completedTasks} of {selectedProject.tasks} tasks completed</div>
               </div>
+
+              {/* Tasks in this project */}
+              {tasks.filter(t => t.projectId === selectedProject.id).length > 0 && (
+                <div className="detail-tasks-section">
+                  <div className="detail-label" style={{ marginBottom: '0.75rem' }}>
+                    Tasks ({tasks.filter(t => t.projectId === selectedProject.id).length})
+                  </div>
+                  <div className="detail-tasks-list">
+                    {tasks.filter(t => t.projectId === selectedProject.id).map(task => {
+                      const due = getDaysUntil(task.dueDate);
+                      return (
+                        <div key={task.id} className="detail-task-item">
+                          <div className={`task-status-dot task-status-${task.status}`}></div>
+                          <div className="detail-task-info">
+                            <span className="detail-task-title">{task.title}</span>
+                            {task.category && <span className="detail-task-category">{task.category}</span>}
+                          </div>
+                          <div className="detail-task-meta">
+                            {task.assignee && (
+                              <div className="task-assignee-mini" style={{ backgroundColor: task.assignee.color }} title={task.assignee.name}>
+                                {task.assignee.avatar}
+                              </div>
+                            )}
+                            <span className={`task-due-mini due-${due.cls}`}>{due.label}</span>
+                            <span className={`priority-badge priority-${task.priority}`} style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem' }}>
+                              {task.priority}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn-danger" onClick={() => handleDeleteProject(selectedProject.id)}>Delete</button>
+              <button className="btn-task-small" onClick={() => { setSelectedProject(null); openAddTaskModal(selectedProject.id.toString()); }}>
+                + Add Task
+              </button>
               <div style={{ flex: 1 }}></div>
               <button className="btn-secondary" onClick={() => setSelectedProject(null)}>Close</button>
               <button className="btn-primary" onClick={() => handleEditProject(selectedProject)}>Edit Project</button>
