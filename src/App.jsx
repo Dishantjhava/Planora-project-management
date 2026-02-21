@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './components/Login';
 import Home from './components/Home';
 import Dashboard from './components/Dashboard';
+import Projects from './components/Projects'; 
 import './App.css';
 
 function App() {
@@ -35,6 +36,13 @@ function App() {
           path="/dashboard" 
           element={
             isAuthenticated ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/login" />
+          } 
+        />
+        {/* ← ADD THIS ROUTE */}
+        <Route 
+          path="/projects" 
+          element={
+            isAuthenticated ? <Projects onLogout={handleLogout} /> : <Navigate to="/login" />
           } 
         />
         <Route path="/" element={<Navigate to="/login" />} />
