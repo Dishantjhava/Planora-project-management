@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
+import { loginUser } from '../services/api';
 
 // Import Icons
 import LogoIcon from './icons/LogoIcon';
@@ -107,41 +108,50 @@ const Login = ({ onLogin }) => {
   };
 
   // Handle form submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    // Check login attempts (basic rate limiting)
-    if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-      setErrors({ general: 'Too many login attempts. Please try again later.' });
-      return;
-    }
+  if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+    setErrors({ general: 'Too many login attempts. Please try again later.' });
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      // For demo: accept any valid email/password
-      if (formData.email && formData.password.length >= 6) {
+  try {
+    // Import this at the top of your file
+    
+    const result = await loginUser({
+      email: formData.email,
+      password: formData.password,
+    });
 
-        // Handle Remember Me
-        if (rememberMe) {
-          localStorage.setItem('planora_saved_email', formData.email);
-        } else {
-          localStorage.removeItem('planora_saved_email');
-        }
+    if (result.success) {
+      // Save token to localStorage
+      localStorage.setItem('token', result.token);
+      localStorage.setItem('planora_user', JSON.stringify(result.user));
 
-        onLogin();
-        navigate('/home');
+      // Handle Remember Me
+      if (rememberMe) {
+        localStorage.setItem('planora_saved_email', formData.email);
       } else {
-        setLoginAttempts(prev => prev + 1);
-        setErrors({ general: 'Invalid email or password' });
-        // Incrementing count can clear after simulated timeout on a real backend.
+        localStorage.removeItem('planora_saved_email');
       }
-      setIsLoading(false);
-    }, SIMULATED_API_DELAY);
-  };
+
+      onLogin();
+      navigate('/home');
+    } else {
+      setLoginAttempts(prev => prev + 1);
+      setErrors({ general: result.message || 'Invalid email or password' });
+    }
+  } catch (err) {
+    setErrors({ general: 'Server error. Make sure backend is running.' });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="login-container">
@@ -301,7 +311,10 @@ const Login = ({ onLogin }) => {
 
           {/* Sign Up Link */}
           <div className="signup-link">
-            Don't have an account? <a href="#">Sign up</a>
+            Don't have an account?{' '}
+            <a href="#" onClick={e => { e.preventDefault(); navigate('/register'); }}>
+              Sign up
+            </a>
           </div>
         </form>
       </div>
