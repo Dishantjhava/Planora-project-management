@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
-import { loginUser } from '../services/api';
+import { loginUser } from '../services/api.js';
 
 import LogoIcon from './icons/LogoIcon';
 import AlertIcon from './icons/AlertIcon';

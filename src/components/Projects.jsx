@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Projects.css';
-import { getProjects, createProject, updateProject, deleteProject, createTask, deleteTask, updateTask, getTeamMembers, getTasks } from '../services/api';
+import { getProjects, createProject, updateProject, deleteProject, createTask, deleteTask, updateTask, getTeamMembers, getTasks } from '../services/api.js';
 
 const TASK_CATEGORIES = ['Design','Development','Testing','Research','Documentation','Review','Deployment','Planning'];
 

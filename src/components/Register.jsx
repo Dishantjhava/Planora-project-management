@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Register.css';
-import { registerUser } from '../services/api';
+import { registerUser } from '../services/api.js';
 
 import LogoIcon from './icons/LogoIcon';
 import AlertIcon from './icons/AlertIcon';

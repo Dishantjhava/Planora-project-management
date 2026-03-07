@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Home.css';
-import { getProjects, createProject, createTask, getTeamMembers } from '../services/api';
+import { getProjects, createProject, createTask, getTeamMembers } from '../services/api.js';
 
 const DEFAULT_PROJECTS = [
   { id: 1, name: 'Website Redesign',       progress: 75, status: 'In Progress', team: 5,  deadline: '2026-02-15', priority: 'high',   tasks: 24, completedTasks: 18, description: 'Complete redesign of company website with modern UI/UX' },
