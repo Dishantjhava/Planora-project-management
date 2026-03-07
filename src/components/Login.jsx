@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import './Login.css';
 import { loginUser } from '../services/api';
 
-// Import Icons
 import LogoIcon from './icons/LogoIcon';
 import AlertIcon from './icons/AlertIcon';
 import EmailIcon from './icons/EmailIcon';
@@ -15,21 +14,19 @@ import GoogleIcon from './icons/GoogleIcon';
 import GithubIcon from './icons/GithubIcon';
 
 const MAX_LOGIN_ATTEMPTS = 5;
-const SIMULATED_API_DELAY = 1500;
+
+
 
 const Login = ({ onLogin }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData]           = useState({ email: '', password: '' });
+  const [rememberMe, setRememberMe]       = useState(false);
+  const [showPassword, setShowPassword]   = useState(false);
+  const [errors, setErrors]               = useState({});
+  const [isLoading, setIsLoading]         = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
+
   const navigate = useNavigate();
 
-  // Load saved email on mount if rememberMe was previously checked
   useEffect(() => {
     const savedEmail = localStorage.getItem('planora_saved_email');
     if (savedEmail) {
@@ -38,286 +35,243 @@ const Login = ({ onLogin }) => {
     }
   }, []);
 
-  // Email validation
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  // Password strength checker
   const getPasswordStrength = (password) => {
     if (password.length === 0) return { strength: '', color: '' };
-    if (password.length < 6) return { strength: 'Weak', color: '#ef4444' };
-    if (password.length < 10) return { strength: 'Medium', color: '#f59e0b' };
-    if (password.length >= 10 && /[A-Z]/.test(password) && /[0-9]/.test(password)) {
+    if (password.length < 6)   return { strength: 'Weak',   color: '#ef4444' };
+    if (password.length < 10)  return { strength: 'Medium', color: '#f59e0b' };
+    if (/[A-Z]/.test(password) && /[0-9]/.test(password))
       return { strength: 'Strong', color: '#10b981' };
-    }
     return { strength: 'Medium', color: '#f59e0b' };
   };
 
   const passwordStrength = getPasswordStrength(formData.password);
 
-  // Real-time validation
   const validateForm = () => {
     const newErrors = {};
-
-    // Email validation
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    // Password validation
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-
+    if (!formData.email) newErrors.email = 'Email is required';
+    else if (!validateEmail(formData.email)) newErrors.email = 'Enter a valid email address';
+    if (!formData.password) newErrors.password = 'Password is required';
+    else if (formData.password.length < 6) newErrors.password = 'At least 6 characters';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleBlur = (e) => {
     const { name, value } = e.target;
-
-    // Only validate the specifically blurred field
-    if (name === 'email' && value && !validateEmail(value)) {
-      setErrors(prev => ({ ...prev, email: 'Please enter a valid email address' }));
-    } else if (name === 'password' && value && value.length < 6) {
-      setErrors(prev => ({ ...prev, password: 'Password must be at least 6 characters' }));
-    }
+    if (name === 'email' && value && !validateEmail(value))
+      setErrors(prev => ({ ...prev, email: 'Enter a valid email address' }));
+    else if (name === 'password' && value && value.length < 6)
+      setErrors(prev => ({ ...prev, password: 'At least 6 characters' }));
   };
 
-  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
 
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+      setErrors({ general: 'Too many attempts. Please try again later.' });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const result = await loginUser({ email: formData.email, password: formData.password });
+      if (result.success) {
+        localStorage.setItem('token', result.token);
+        localStorage.setItem('planora_user', JSON.stringify(result.user));
+        if (rememberMe) localStorage.setItem('planora_saved_email', formData.email);
+        else localStorage.removeItem('planora_saved_email');
+        onLogin();
+        navigate('/home');
+      } else {
+        setLoginAttempts(prev => prev + 1);
+        setErrors({ general: result.message || 'Invalid email or password' });
+      }
+    } catch (err) {
+      setErrors({ general: 'Server error. Make sure backend is running.' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Handle form submission
- const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  if (!validateForm()) return;
-
-  if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-    setErrors({ general: 'Too many login attempts. Please try again later.' });
-    return;
-  }
-
-  setIsLoading(true);
-
-  try {
-    // Import this at the top of your file
-    
-    const result = await loginUser({
-      email: formData.email,
-      password: formData.password,
-    });
-
-    if (result.success) {
-      // Save token to localStorage
-      localStorage.setItem('token', result.token);
-      localStorage.setItem('planora_user', JSON.stringify(result.user));
-
-      // Handle Remember Me
-      if (rememberMe) {
-        localStorage.setItem('planora_saved_email', formData.email);
-      } else {
-        localStorage.removeItem('planora_saved_email');
-      }
-
-      onLogin();
-      navigate('/home');
-    } else {
-      setLoginAttempts(prev => prev + 1);
-      setErrors({ general: result.message || 'Invalid email or password' });
-    }
-  } catch (err) {
-    setErrors({ general: 'Server error. Make sure backend is running.' });
-  } finally {
-    setIsLoading(false);
-  }
-};
-
   return (
-    <div className="login-container">
-      <div className="login-background">
-        <div className="shape"></div>
-        <div className="shape"></div>
-      </div>
+    <div className="cu-page">
 
-      <div className="login-card">
-        {/* Header Section */}
-        <div className="login-header">
-          <div className="logo-container">
-            <LogoIcon className="logo-icon" aria-hidden="true" />
+      {/* ── LEFT PANEL ── */}
+      <div className="cu-left">
+        <div className="cu-blob cu-blob-1"></div>
+        <div className="cu-blob cu-blob-2"></div>
+
+        {/* Navbar */}
+        <div className="cu-nav">
+          <div className="cu-logo">
+            <div className="cu-logo-icon"><LogoIcon /></div>
+            <span className="cu-logo-text">Planora</span>
           </div>
-          <h1>Planora</h1>
-          <p>From planning to progress</p>
+          <div className="cu-nav-right">
+            <span className="cu-nav-label">New to Planora?</span>
+            <button className="cu-nav-btn" onClick={() => navigate('/register')}>Sign Up Free</button>
+          </div>
         </div>
 
-        {/* General Error Message */}
-        {errors.general && (
-          <div className="alert alert-error" role="alert">
-            <AlertIcon aria-hidden="true" />
-            {errors.general}
-          </div>
-        )}
-
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="login-form">
-          {/* Email Input */}
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <div className="input-wrapper">
-              <EmailIcon className="input-icon" aria-hidden="true" />
-              <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={errors.email ? 'error' : ''}
-                autoComplete="email"
-                disabled={isLoading}
-                autoFocus
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "email-error" : undefined}
-              />
-              {formData.email && !errors.email && (
-                <CheckIcon className="input-success-icon" aria-hidden="true" />
-              )}
-            </div>
-            {errors.email && <span id="email-error" className="error-message">{errors.email}</span>}
+        {/* Hero content */}
+        <div className="cu-hero">
+          <div className="cu-eyebrow">
+            <span className="cu-eyebrow-dot"></span>
+            AI-powered project management
           </div>
 
-          {/* Password Input */}
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <div className="input-wrapper">
-              <LockIcon className="input-icon" aria-hidden="true" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                name="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={errors.password ? 'error' : ''}
-                autoComplete="current-password"
-                disabled={isLoading}
-                aria-invalid={!!errors.password}
-                aria-describedby={errors.password ? "password-error" : undefined}
-              />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOffIcon aria-hidden="true" /> : <EyeIcon aria-hidden="true" />}
-              </button>
-            </div>
-            {errors.password && <span id="password-error" className="error-message">{errors.password}</span>}
+          <h1 className="cu-title">
+            Project management<br />
+            <span className="cu-title-accent">built for teams</span>
+          </h1>
 
-            {/* Password Strength Indicator */}
-            {formData.password && !errors.password && (
-              <div className="password-strength">
-                <div className="strength-bar">
-                  <div
-                    className="strength-fill"
-                    style={{
-                      width: passwordStrength.strength === 'Weak' ? '33%' : passwordStrength.strength === 'Medium' ? '66%' : '100%',
-                      backgroundColor: passwordStrength.color
-                    }}
-                  ></div>
-                </div>
-                <span className="strength-text" style={{ color: passwordStrength.color }}>
-                  {passwordStrength.strength}
-                </span>
-              </div>
-            )}
-          </div>
+          <p className="cu-subtitle">
+            Bring projects, tasks, and teams together in one place that keeps everyone aligned automatically.
+          </p>
 
-          {/* Remember Me & Forgot Password */}
-          <div className="form-options">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={isLoading}
-              />
-              <span>Remember me</span>
-            </label>
-            <a href="#" className="forgot-password">Forgot password?</a>
-          </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="login-button"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <span className="spinner"></span>
-                Signing in...
-              </>
-            ) : (
-              <>
-                Sign In
-                <svg className="button-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M12 5L19 12L12 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </>
-            )}
+          <button className="cu-cta" onClick={() => navigate('/register')}>
+            Get Started. It's FREE →
           </button>
 
-          {/* Divider */}
-          <div className="divider">
-            <span>OR</span>
+          <div className="cu-proof">
+            <span className="cu-stars">★★★★★</span>
+            <span className="cu-proof-text">Trusted by 10,000+ teams worldwide</span>
           </div>
-
-          {/* Social Login Buttons */}
-          <div className="social-login">
-            <button type="button" className="social-button google" disabled={isLoading}>
-              <GoogleIcon aria-hidden="true" />
-              Continue with Google
-            </button>
-            <button type="button" className="social-button github" disabled={isLoading}>
-              <GithubIcon aria-hidden="true" />
-              Continue with GitHub
-            </button>
-          </div>
-
-          {/* Sign Up Link */}
-          <div className="signup-link">
-            Don't have an account?{' '}
-            <a href="#" onClick={e => { e.preventDefault(); navigate('/register'); }}>
-              Sign up
-            </a>
-          </div>
-        </form>
+        </div>
       </div>
+
+      {/* ── RIGHT PANEL ── */}
+      <div className="cu-right">
+        <div className="cu-right-blob cu-right-blob-1"></div>
+        <div className="cu-right-blob cu-right-blob-2"></div>
+
+        <div className="cu-form-box">
+
+          <div className="cu-mobile-logo">
+            <div className="cu-logo-icon-sm"><LogoIcon /></div>
+            <span>Planora</span>
+          </div>
+
+          <div className="cu-form-header">
+            <h2>Welcome back</h2>
+            <p>Sign in to your Planora account</p>
+          </div>
+
+          {errors.general && (
+            <div className="cu-alert" role="alert">
+              <AlertIcon />{errors.general}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="cu-form">
+
+            {/* Email */}
+            <div className="cu-field">
+              <label htmlFor="email">Email Address</label>
+              <div className="cu-input-wrap">
+                <EmailIcon className="cu-input-icon" />
+                <input
+                  type="email" id="email" name="email"
+                  placeholder="you@example.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={errors.email ? 'cu-err' : ''}
+                  disabled={isLoading}
+                  autoFocus
+                />
+                {formData.email && !errors.email && <CheckIcon className="cu-check-icon" />}
+              </div>
+              {errors.email && <span className="cu-error-msg">{errors.email}</span>}
+            </div>
+
+            {/* Password */}
+            <div className="cu-field">
+              <label htmlFor="password">Password</label>
+              <div className="cu-input-wrap">
+                <LockIcon className="cu-input-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password" name="password"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={errors.password ? 'cu-err' : ''}
+                  disabled={isLoading}
+                />
+                <button type="button" className="cu-eye" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
+              {errors.password && <span className="cu-error-msg">{errors.password}</span>}
+              {formData.password && !errors.password && (
+                <div className="cu-strength">
+                  <div className="cu-strength-bar">
+                    <div className="cu-strength-fill" style={{
+                      width: passwordStrength.strength === 'Weak' ? '33%' : passwordStrength.strength === 'Medium' ? '66%' : '100%',
+                      backgroundColor: passwordStrength.color
+                    }} />
+                  </div>
+                  <span style={{ color: passwordStrength.color, fontSize: '0.75rem', fontWeight: 600 }}>
+                    {passwordStrength.strength}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Options */}
+            <div className="cu-options">
+              <label className="cu-remember">
+                <input type="checkbox" checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)} disabled={isLoading} />
+                <span>Remember me</span>
+              </label>
+              <a href="#" className="cu-forgot">Forgot password?</a>
+            </div>
+
+            {/* Submit */}
+            <button type="submit" className="cu-submit" disabled={isLoading}>
+              {isLoading ? (
+                <><span className="cu-spinner"></span>Signing in...</>
+              ) : (
+                <>Sign In
+                  <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
+                    <path d="M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M12 5L19 12L12 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </>
+              )}
+            </button>
+
+            <div className="cu-divider"><span>OR</span></div>
+
+            <div className="cu-socials">
+              <button type="button" className="cu-social google" disabled={isLoading}>
+                <GoogleIcon /> Continue with Google
+              </button>
+              <button type="button" className="cu-social github" disabled={isLoading}>
+                <GithubIcon /> Continue with GitHub
+              </button>
+            </div>
+
+            <div className="cu-link">
+              Don't have an account?{' '}
+              <a href="#" onClick={e => { e.preventDefault(); navigate('/register'); }}>Sign up free</a>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
     </div>
   );
 };

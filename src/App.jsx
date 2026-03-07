@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Home from './components/Home';
 import Dashboard from './components/Dashboard';
 import Projects from './components/Projects'; 
+import Register from './components/Register';
 import './App.css';
 
 function App() {
@@ -43,6 +44,12 @@ function App() {
           path="/projects" 
           element={
             isAuthenticated ? <Projects onLogout={handleLogout} /> : <Navigate to="/login" />
+          } 
+        />
+        <Route 
+          path="/register" 
+          element={
+            isAuthenticated ? <Navigate to="/home" /> : <Register onLogin={handleLogin} />
           } 
         />
         <Route path="/" element={<Navigate to="/login" />} />
