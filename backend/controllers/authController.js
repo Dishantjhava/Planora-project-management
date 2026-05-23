@@ -2,10 +2,17 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const TeamMember = require('../models/TeamMember');
 
-// Generate JWT
+// Generate short-lived Access Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '7d',
+    expiresIn: process.env.JWT_EXPIRE || '15m',
+  });
+};
+
+// Generate long-lived Refresh Token
+const generateRefreshToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret', {
+    expiresIn: '7d',
   });
 };
 
@@ -27,10 +34,14 @@ const register = async (req, res) => {
     await TeamMember.create({ user: user._id, role: user.role });
 
     const token = generateToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+    user.refreshToken = refreshToken;
+    await user.save();
 
     res.status(201).json({
       success: true,
       token,
+      refreshToken,
       user: {
         _id: user._id,
         name: user.name,
@@ -60,10 +71,14 @@ const login = async (req, res) => {
     }
 
     const token = generateToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+    user.refreshToken = refreshToken;
+    await user.save();
 
     res.json({
       success: true,
       token,
+      refreshToken,
       user: {
         _id: user._id,
         name: user.name,
@@ -106,4 +121,32 @@ const updateMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe, updateMe };
+// @desc    Refresh token
+// @route   POST /api/auth/refresh
+// @access  Public
+const refresh = async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(401).json({ success: false, message: 'No refresh token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret');
+    const user = await User.findById(decoded.id);
+
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(401).json({ success: false, message: 'Invalid refresh token' });
+    }
+
+    const token = generateToken(user._id);
+    const newRefreshToken = generateRefreshToken(user._id);
+    user.refreshToken = newRefreshToken;
+    await user.save();
+
+    res.json({ success: true, token, refreshToken: newRefreshToken });
+  } catch (err) {
+    res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+  }
+};
+
+module.exports = { register, login, getMe, updateMe, refresh };
