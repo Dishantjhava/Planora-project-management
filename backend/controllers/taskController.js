@@ -1,5 +1,7 @@
 const Task = require('../models/Task');
 const Project = require('../models/Project');
+const Notification = require('../models/Notification');
+const socket = require('../socket');
 
 // @desc    Get all tasks (optionally filter by project)
 // @route   GET /api/tasks?project=projectId
@@ -8,16 +10,39 @@ const getTasks = async (req, res) => {
   try {
     const filter = { createdBy: req.user._id };
     if (req.query.project) filter.project = req.query.project;
-    if (req.query.status) filter.status = req.query.status;
+    if (req.query.status && req.query.status !== 'all') filter.status = req.query.status;
     if (req.query.priority) filter.priority = req.query.priority;
+    if (req.query.assignee) filter.assignedTo = req.query.assignee;
+
+    if (req.query.search) {
+      filter.$or = [
+        { title: { $regex: req.query.search, $options: 'i' } },
+        { description: { $regex: req.query.search, $options: 'i' } }
+      ];
+    }
+
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const startIndex = (page - 1) * limit;
+
+    const total = await Task.countDocuments(filter);
 
     const tasks = await Task.find(filter)
       .populate('project', 'name')
       .populate('assignedTo', 'name email role')
       .populate('createdBy', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(startIndex)
+      .limit(limit);
 
-    res.json({ success: true, count: tasks.length, tasks });
+    res.json({
+      success: true,
+      count: tasks.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      tasks,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -74,6 +99,26 @@ const createTask = async (req, res) => {
     await task.populate('assignedTo', 'name email role');
     await task.populate('createdBy', 'name email');
 
+    // Emit event
+    // Create notification if assigned to someone else
+    if (assignedTo && assignedTo.toString() !== req.user._id.toString()) {
+      const notification = await Notification.create({
+        recipient: assignedTo,
+        sender: req.user._id,
+        type: 'assignment',
+        message: `assigned you to a new task: "${task.title}"`,
+        relatedTask: task._id,
+      });
+      await notification.populate('sender', 'name');
+      await notification.populate('relatedTask', 'title');
+
+      try {
+        socket.getIO().emit(`new_notification_${assignedTo}`, notification);
+      } catch (e) {
+        console.error('Socket emission failed', e);
+      }
+    }
+
     res.status(201).json({ success: true, task });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -99,6 +144,27 @@ const updateTask = async (req, res) => {
       .populate('assignedTo', 'name email role')
       .populate('createdBy', 'name email');
 
+    // Emit event
+    // Create notification if assigned to someone else AND it changed
+    if (req.body.assignedTo && req.body.assignedTo.toString() !== req.user._id.toString()) {
+      // We could check if it actually changed, but for simplicity we will notify if it's assigned to someone else.
+      const notification = await Notification.create({
+        recipient: req.body.assignedTo,
+        sender: req.user._id,
+        type: 'assignment',
+        message: `updated a task assigned to you: "${task.title}"`,
+        relatedTask: task._id,
+      });
+      await notification.populate('sender', 'name');
+      await notification.populate('relatedTask', 'title');
+
+      try {
+        socket.getIO().emit(`new_notification_${req.body.assignedTo}`, notification);
+      } catch (e) {
+        console.error('Socket emission failed', e);
+      }
+    }
+
     res.json({ success: true, task });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -121,6 +187,14 @@ const deleteTask = async (req, res) => {
     }
 
     await task.deleteOne();
+
+    // Emit event
+    try {
+      socket.getIO().emit('task_deleted', req.params.id);
+    } catch (e) {
+      console.error('Socket emission failed', e);
+    }
+
     res.json({ success: true, message: 'Task deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

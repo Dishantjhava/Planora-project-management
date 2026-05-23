@@ -7,11 +7,12 @@ const {
   updateProject,
   deleteProject,
 } = require('../controllers/projectController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, authorize } = require('../middleware/authMiddleware');
+const { projectValidation } = require('../middleware/validationMiddleware');
 
 router.use(protect); // All project routes require auth
 
-router.route('/').get(getProjects).post(createProject);
-router.route('/:id').get(getProject).put(updateProject).delete(deleteProject);
+router.route('/').get(getProjects).post(authorize('Admin', 'Project Manager'), projectValidation, createProject);
+router.route('/:id').get(getProject).put(authorize('Admin', 'Project Manager'), projectValidation, updateProject).delete(authorize('Admin', 'Project Manager'), deleteProject);
 
 module.exports = router;

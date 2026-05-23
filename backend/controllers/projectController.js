@@ -5,14 +5,47 @@ const Project = require('../models/Project');
 // @access  Private
 const getProjects = async (req, res) => {
   try {
-    const projects = await Project.find({
-      $or: [{ owner: req.user._id }, { members: req.user._id }],
-    })
+    const filter = {
+      $and: [
+        { $or: [{ owner: req.user._id }, { members: req.user._id }] }
+      ]
+    };
+
+    if (req.query.search) {
+      filter.$and.push({
+        $or: [
+          { name: { $regex: req.query.search, $options: 'i' } },
+          { description: { $regex: req.query.search, $options: 'i' } }
+        ]
+      });
+    }
+
+    if (req.query.status && req.query.status !== 'all') {
+      const statusStr = req.query.status.replace(/-/g, ' ');
+      filter.$and.push({ status: { $regex: new RegExp('^' + statusStr + '$', 'i') } });
+    }
+
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const startIndex = (page - 1) * limit;
+
+    const total = await Project.countDocuments(filter);
+
+    const projects = await Project.find(filter)
       .populate('owner', 'name email role')
       .populate('members', 'name email role')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(startIndex)
+      .limit(limit);
 
-    res.json({ success: true, count: projects.length, projects });
+    res.json({
+      success: true,
+      count: projects.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      projects,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

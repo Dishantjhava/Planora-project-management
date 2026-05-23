@@ -6,11 +6,12 @@ const {
   updateTeamMember,
   removeTeamMember,
 } = require('../controllers/teamController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, authorize } = require('../middleware/authMiddleware');
+const { teamValidation } = require('../middleware/validationMiddleware');
 
 router.use(protect); // All team routes require auth
 
 router.route('/').get(getTeamMembers);
-router.route('/:id').get(getTeamMember).put(updateTeamMember).delete(removeTeamMember);
+router.route('/:id').get(getTeamMember).put(authorize('Admin', 'Project Manager'), teamValidation, updateTeamMember).delete(authorize('Admin', 'Project Manager'), removeTeamMember);
 
 module.exports = router;
