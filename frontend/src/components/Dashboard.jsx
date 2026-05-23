@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
+import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
+import { SkeletonDashboard } from './Skeleton';
 
 const AVATAR_COLORS = [
   '#6366f1', '#10b981', '#f59e0b', '#ec4899',
@@ -21,7 +24,10 @@ const TASK_CATEGORIES = [
 const STATUS_CYCLE = { todo: 'in-progress', 'in-progress': 'review', review: 'done', done: 'todo' };
 const STATUS_LABELS = { todo: 'To Do', 'in-progress': 'In Progress', review: 'In Review', done: 'Done ✓' };
 
-const Dashboard = ({ onLogout }) => {
+const Dashboard = () => {
+  const { logout } = useAuth();
+  const { projects, setProjects, tasks, setTasks, teamMembers, setTeamMembers, notifications, setNotifications, pendingInvites, setPendingInvites, loading } = useData();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen]         = useState(true);
   const [activeTab, setActiveTab]             = useState('all');
   const [searchQuery, setSearchQuery]         = useState('');
@@ -38,65 +44,14 @@ const Dashboard = ({ onLogout }) => {
   const [inviteForm, setInviteForm]           = useState({ name: '', email: '', role: 'Frontend Dev' });
   const [inviteErrors, setInviteErrors]       = useState({});
   const [inviteStep, setInviteStep]           = useState(1);
-  const [pendingInvites, setPendingInvites]   = useState(() => {
-    const s = localStorage.getItem('planora_invites');
-    return s ? JSON.parse(s) : [];
-  });
 
-  // ── Tasks ─────────────────────────────────────────────────────────
-  const [showAddTask, setShowAddTask]       = useState(false);
-  const [taskForm, setTaskForm]             = useState({
-    title: '', description: '', projectId: '', assigneeId: '',
-    priority: 'medium', dueDate: '', category: 'Development', status: 'todo'
-  });
-  const [taskFormErrors, setTaskFormErrors] = useState({});
-  const [tasks, setTasks]                   = useState(() => {
-    const s = localStorage.getItem('planora_tasks');
-    return s ? JSON.parse(s) : [];
-  });
-
-  // ── Team ──────────────────────────────────────────────────────────
-  const [teamMembers, setTeamMembers] = useState(() => {
-    const s = localStorage.getItem('planora_team');
-    return s ? JSON.parse(s) : [
-      { id: 1, name: 'Sarah Chen',  role: 'Lead Designer',   avatar: 'SC', status: 'online',  color: '#6366f1' },
-      { id: 2, name: 'Mike Ross',   role: 'Backend Dev',     avatar: 'MR', status: 'online',  color: '#10b981' },
-      { id: 3, name: 'Emily Davis', role: 'Project Manager', avatar: 'ED', status: 'away',    color: '#f59e0b' },
-      { id: 4, name: 'John Smith',  role: 'Frontend Dev',    avatar: 'JS', status: 'offline', color: '#ec4899' },
-    ];
-  });
-
-  // ── Projects ──────────────────────────────────────────────────────
-  const [projects, setProjects] = useState(() => {
-    const s = localStorage.getItem('planora_projects');
-    return s ? JSON.parse(s) : [
-      { id: 1, name: 'Website Redesign',       progress: 75, status: 'In Progress', team: 5, deadline: '2026-02-15', priority: 'high',   tasks: 24, completedTasks: 18, description: 'Complete redesign of company website with modern UI/UX' },
-      { id: 2, name: 'Mobile App Development', progress: 45, status: 'In Progress', team: 8, deadline: '2026-03-20', priority: 'high',   tasks: 32, completedTasks: 14, description: 'Native mobile app for iOS and Android platforms' },
-      { id: 3, name: 'Marketing Campaign',     progress: 90, status: 'Review',      team: 3, deadline: '2026-02-10', priority: 'medium', tasks: 15, completedTasks: 13, description: 'Q1 marketing campaign for new product launch' },
-      { id: 4, name: 'Database Migration',     progress: 30, status: 'Planning',    team: 4, deadline: '2026-04-01', priority: 'low',    tasks: 20, completedTasks: 6,  description: 'Migrate legacy database to cloud infrastructure' },
-      { id: 5, name: 'Security Audit',         progress: 60, status: 'In Progress', team: 2, deadline: '2026-02-25', priority: 'high',   tasks: 12, completedTasks: 7,  description: 'Comprehensive security audit and vulnerability assessment' },
-    ];
-  });
-
-  const [projectForm, setProjectForm] = useState({
-    name: '', description: '', deadline: '', priority: 'medium',
-    team: '', status: 'planning', tasks: '', completedTasks: 0
-  });
-  const [formErrors, setFormErrors] = useState({});
-
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'New task assigned',   message: 'You have been assigned to "API Integration"', time: '10 min ago', read: false, type: 'task' },
-    { id: 2, title: 'Deadline approaching',message: 'Marketing Campaign due in 2 days',            time: '1 hour ago', read: false, type: 'warning' },
-    { id: 3, title: 'Comment received',    message: 'Mike commented on your task',                 time: '3 hours ago',read: true,  type: 'comment' },
-  ]);
-
-  const navigate = useNavigate();
-
-  // ── Persist ───────────────────────────────────────────────────────
-  useEffect(() => { localStorage.setItem('planora_projects', JSON.stringify(projects)); }, [projects]);
-  useEffect(() => { localStorage.setItem('planora_team',     JSON.stringify(teamMembers)); }, [teamMembers]);
-  useEffect(() => { localStorage.setItem('planora_invites',  JSON.stringify(pendingInvites)); }, [pendingInvites]);
-  useEffect(() => { localStorage.setItem('planora_tasks',    JSON.stringify(tasks)); }, [tasks]);
+  // ── Task/Project Forms ────────────────────────────────────────────
+  const [showAddTask, setShowAddTask]         = useState(false);
+  const [taskForm, setTaskForm]               = useState({ title: '', description: '', projectId: '', assigneeId: '', priority: 'medium', dueDate: '', category: 'Development', status: 'todo' });
+  const [taskFormErrors, setTaskFormErrors]   = useState({});
+  const [projectForm, setProjectForm]         = useState({ name: '', description: '', deadline: '', priority: 'medium', team: '', status: 'planning', tasks: '', completedTasks: 0 });
+  const [formErrors, setFormErrors]           = useState({});
+  // Data comes from useData()
 
   // ── Keyboard shortcuts ────────────────────────────────────────────
   useEffect(() => {
@@ -112,6 +67,14 @@ const Dashboard = ({ onLogout }) => {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
+  // ── Server-Side Search Debounce ───────────────────────────────────
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchData({ search: searchQuery, status: activeTab });
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery, activeTab]);
 
   // ── Helpers ───────────────────────────────────────────────────────
   const showToast = (message, type = 'success') => {
@@ -373,19 +336,13 @@ const Dashboard = ({ onLogout }) => {
   const doneTasks    = tasks.filter(t => t.status === 'done').length;
 
   const stats = [
-    { label: 'Total Projects', value: projects.length.toString(),      icon: '📊', color: '#6366f1', trend: '+12%', trendUp: true },
-    { label: 'Active Tasks',   value: activeTasks.toString(),          icon: '✓',  color: '#10b981', trend: `${doneTasks} done`, trendUp: true },
-    { label: 'Team Members',   value: teamMembers.length.toString(),   icon: '👥', color: '#f59e0b', trend: `${pendingInvites.length} pending`, trendUp: true },
-    { label: 'Overall Progress', value: `${overallProgress}%`,        icon: '🎯', color: '#ec4899', trend: `${completedTasks}/${totalTasks} tasks`, trendUp: true },
+    { label: 'Total Projects', value: projects.length.toString(),      icon: '📊', color: '#6366f1', trend: projects.length > 0 ? '+12%' : '0 new', trendUp: projects.length > 0 },
+    { label: 'Active Tasks',   value: activeTasks.toString(),          icon: '✓',  color: '#10b981', trend: `${doneTasks} done`, trendUp: doneTasks > 0 },
+    { label: 'Team Members',   value: teamMembers.length.toString(),   icon: '👥', color: '#f59e0b', trend: `${pendingInvites.length} pending`, trendUp: pendingInvites.length > 0 },
+    { label: 'Overall Progress', value: `${overallProgress}%`,        icon: '🎯', color: '#ec4899', trend: `${completedTasks}/${totalTasks} tasks`, trendUp: completedTasks > 0 },
   ];
 
-  const recentActivity = [
-    { user: 'Sarah Chen',  action: 'completed task',    item: 'UI Design Review',   time: '5 min ago',   avatar: 'SC', color: '#6366f1' },
-    { user: 'Mike Ross',   action: 'added comment on',  item: 'Backend API',         time: '23 min ago',  avatar: 'MR', color: '#10b981' },
-    { user: 'Emily Davis', action: 'created new',       item: 'Sprint Planning',     time: '1 hour ago',  avatar: 'ED', color: '#f59e0b' },
-    { user: 'John Smith',  action: 'updated status of', item: 'Mobile App',          time: '2 hours ago', avatar: 'JS', color: '#ec4899' },
-    { user: 'Anna Lee',    action: 'uploaded files to', item: 'Database Migration',  time: '3 hours ago', avatar: 'AL', color: '#8b5cf6' },
-  ];
+  const recentActivity = [];
 
   const upcomingDeadlines = projects
     .filter(p => new Date(p.deadline) > new Date())
@@ -397,10 +354,7 @@ const Dashboard = ({ onLogout }) => {
       priority: p.priority,
     }));
 
-  const filteredProjects = projects
-    .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      (activeTab === 'all' || p.status.toLowerCase().replace(' ', '-') === activeTab))
-    .sort((a, b) => {
+  const filteredProjects = [...projects].sort((a, b) => {
       if (sortBy === 'name')     return a.name.localeCompare(b.name);
       if (sortBy === 'deadline') return new Date(a.deadline) - new Date(b.deadline);
       if (sortBy === 'progress') return b.progress - a.progress;
@@ -446,6 +400,14 @@ const Dashboard = ({ onLogout }) => {
           <a href="#" className="nav-item">
             <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Calendar</span>}
+          </a>
+          <a href="#" className="nav-item">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            {sidebarOpen && <span>Reports</span>}
+          </a>
+          <a href="#" className="nav-item">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M18 8C18 6.41 17.37 4.88 16.24 3.76C15.12 2.63 13.59 2 12 2C10.41 2 8.88 2.63 7.76 3.76C6.63 4.88 6 6.41 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M13.73 21C13.55 21.3 13.3 21.55 12.99 21.73C12.69 21.9 12.35 22 12 22C11.65 22 11.31 21.9 11.01 21.73C10.7 21.55 10.45 21.3 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            {sidebarOpen && <span>Notifications</span>}
           </a>
         </nav>
         <div className="sidebar-footer">
@@ -516,13 +478,13 @@ const Dashboard = ({ onLogout }) => {
             </div>
             <div className="user-menu">
               <div className="user-avatar">
-                <img src="https://ui-avatars.com/api/?name=Admin+User&background=14b8a6&color=fff" alt="User"/>
+                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(JSON.parse(localStorage.getItem('planora_user'))?.name || 'Admin User')}&background=14b8a6&color=fff`} alt="User"/>
               </div>
               <div className="user-info">
-                <span className="user-name">Admin User</span>
-                <span className="user-role">Project Manager</span>
+                <span className="user-name">{JSON.parse(localStorage.getItem('planora_user'))?.name || 'User'}</span>
+                <span className="user-role">{JSON.parse(localStorage.getItem('planora_user'))?.role || 'Member'}</span>
               </div>
-              <button className="dropdown-button" onClick={onLogout} title="Logout">
+              <button className="dropdown-button" onClick={logout} title="Logout">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H9" stroke="currentColor" strokeWidth="2"/><path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2"/><path d="M21 12H9" stroke="currentColor" strokeWidth="2"/></svg>
               </button>
             </div>
@@ -531,7 +493,9 @@ const Dashboard = ({ onLogout }) => {
 
         <div className="dashboard-content">
 
-          {/* ── BENTO GRID ── */}
+          {loading ? (
+            <SkeletonDashboard />
+          ) : (
           <div className="bento-grid">
 
             {/* ── ROW 1: 4 stat cards ── */}
@@ -541,7 +505,9 @@ const Dashboard = ({ onLogout }) => {
                 <div className="bento-stat-body">
                   <div className="bento-stat-value" style={{ color: stat.color }}>{stat.value}</div>
                   <div className="bento-stat-label">{stat.label}</div>
-                  <div className="bento-stat-trend">↑ {stat.trend}</div>
+                  <div className="bento-stat-trend" style={{ color: stat.trendUp ? '#10b981' : 'rgba(226,232,240,0.5)' }}>
+                    {stat.trendUp ? '↑ ' : ''}{stat.trend}
+                  </div>
                 </div>
               </div>
             ))}
@@ -551,34 +517,36 @@ const Dashboard = ({ onLogout }) => {
               <div className="card bento-card-inner">
                 <div className="card-header">
                   <h3>Projects ({filteredProjects.length})</h3>
-                  <div className="header-actions">
-                    <button className="btn-icon" onClick={handleExportCSV} title="Export CSV">
-                      <svg viewBox="0 0 24 24" fill="none"><path d="M21 15V19C21 19.53 20.79 20.04 20.41 20.41C20.04 20.79 19.53 21 19 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V15" stroke="currentColor" strokeWidth="2"/><path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2"/><path d="M12 15V3" stroke="currentColor" strokeWidth="2"/></svg>
-                    </button>
-                    <select className="sort-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                      <option value="name">Sort by Name</option>
-                      <option value="deadline">Sort by Deadline</option>
-                      <option value="progress">Sort by Progress</option>
-                    </select>
-                    <button className="btn-task-small" onClick={() => openAddTaskModal()}>
-                      <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
-                      Add Task
-                    </button>
-                    <button className="btn-primary-small" onClick={handleAddProject}>
-                      <svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
-                      New Project
-                    </button>
+                  {projects.length > 0 && (
+                    <div className="header-actions">
+                      <button className="btn-icon" onClick={handleExportCSV} title="Export CSV">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M21 15V19C21 19.53 20.79 20.04 20.41 20.41C20.04 20.79 19.53 21 19 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V15" stroke="currentColor" strokeWidth="2"/><path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2"/><path d="M12 15V3" stroke="currentColor" strokeWidth="2"/></svg>
+                      </button>
+                      <select className="sort-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                        <option value="name">Sort by Name</option>
+                        <option value="deadline">Sort by Deadline</option>
+                        <option value="progress">Sort by Progress</option>
+                      </select>
+                      <button className="btn-task-small" onClick={() => openAddTaskModal()}>
+                        <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
+                        Add Task
+                      </button>
+                      <button className="btn-primary-small" onClick={handleAddProject}>
+                        <svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
+                        New Project
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {projects.length > 0 && (
+                  <div className="filter-tabs">
+                    {[['all','All'], ['in-progress','In Progress'], ['review','Review'], ['planning','Planning']].map(([key, label]) => (
+                      <button key={key} className={`tab ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                </div>
-                <div className="filter-tabs">
-                  {[['all','All'], ['in-progress','In Progress'], ['review','Review'], ['planning','Planning']].map(([key, label]) => (
-                    <button key={key} className={`tab ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>
-                      {label} <span className="tab-count">
-                        {key === 'all' ? projects.length : projects.filter(p => p.status.toLowerCase().replace(' ','-') === key).length}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                )}
                 <div className="projects-list">
                   {filteredProjects.length > 0 ? filteredProjects.map(project => {
                     const pTasks = tasks.filter(t => t.projectId === project.id);
@@ -672,9 +640,20 @@ const Dashboard = ({ onLogout }) => {
                     );
                   }) : (
                     <div className="empty-state">
-                      <div className="empty-icon">🔍</div>
-                      <h3>No projects found</h3>
-                      <p>Try adjusting your search or filters</p>
+                      {(!searchQuery && activeTab === 'all') ? (
+                        <>
+                          <div className="empty-icon">📁</div>
+                          <h3>No projects yet</h3>
+                          <p style={{ marginBottom: '1rem' }}>Create your first project to get started</p>
+                          <button className="btn-primary" onClick={handleAddProject}>+ Create Project</button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="empty-icon">🔍</div>
+                          <h3>No projects found</h3>
+                          <p>Try adjusting your search or filters</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -687,36 +666,46 @@ const Dashboard = ({ onLogout }) => {
             {/* ── Overall Progress ── */}
             <div className="bento-progress card bento-card-inner">
               <div className="bento-section-title">Overall Progress</div>
-              <div className="bento-ring-wrap">
-                <svg viewBox="0 0 100 100" className="bento-ring-svg">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="9"/>
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="#14b8a6" strokeWidth="9"
-                    strokeDasharray={`${overallProgress * 2.638} 263.8`} strokeLinecap="round"
-                    transform="rotate(-90 50 50)" style={{ transition: 'stroke-dasharray 0.8s ease' }}/>
-                </svg>
-                <div className="bento-ring-label">
-                  <span className="bento-ring-pct">{overallProgress}%</span>
-                  <span className="bento-ring-sub">done</span>
+              {totalTasks === 0 ? (
+                <div className="empty-state" style={{ padding: '2rem 1rem', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div className="empty-icon" style={{ fontSize: '2.5rem', margin: '0 auto 1rem', display: 'flex' }}>📊</div>
+                  <h4 style={{ margin: '0 0 .5rem', color: '#fff' }}>No data yet</h4>
+                  <p style={{ margin: 0, fontSize: '.9rem' }}>Create projects and assign tasks to see your progress here.</p>
                 </div>
-              </div>
-              <div className="bento-progress-stats">
-                <div className="bento-ps"><span className="bento-ps-n">{totalTasks}</span><span className="bento-ps-l">Total</span></div>
-                <div className="bento-ps"><span className="bento-ps-n" style={{color:'#10b981'}}>{completedTasks}</span><span className="bento-ps-l">Done</span></div>
-                <div className="bento-ps"><span className="bento-ps-n" style={{color:'#f59e0b'}}>{totalTasks - completedTasks}</span><span className="bento-ps-l">Left</span></div>
-              </div>
-              {tasks.length > 0 && (
-                <div className="bento-task-mini-list">
-                  {tasks.slice(0, 4).map(task => (
-                    <div key={task.id} className="bento-task-mini-row">
-                      <button className={`task-status-dot task-status-${task.status} task-status-btn`}
-                        onClick={e => toggleTaskStatus(task.id, e)}
-                        title={`${STATUS_LABELS[task.status]} — click to advance`}/>
-                      <span className={`bento-task-mini-title ${task.status === 'done' ? 'task-done-text' : ''}`}>{task.title}</span>
-                      <span className={`status-pill-mini status-${task.status}`}>{STATUS_LABELS[task.status]}</span>
+              ) : (
+                <>
+                  <div className="bento-ring-wrap">
+                    <svg viewBox="0 0 100 100" className="bento-ring-svg">
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="9"/>
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="#14b8a6" strokeWidth="9"
+                        strokeDasharray={`${overallProgress * 2.638} 263.8`} strokeLinecap="round"
+                        transform="rotate(-90 50 50)" style={{ transition: 'stroke-dasharray 0.8s ease' }}/>
+                    </svg>
+                    <div className="bento-ring-label">
+                      <span className="bento-ring-pct">{overallProgress}%</span>
+                      <span className="bento-ring-sub">done</span>
                     </div>
-                  ))}
-                  {tasks.length > 4 && <div className="bento-task-mini-more">+{tasks.length - 4} more</div>}
-                </div>
+                  </div>
+                  <div className="bento-progress-stats">
+                    <div className="bento-ps"><span className="bento-ps-n">{totalTasks}</span><span className="bento-ps-l">Total</span></div>
+                    <div className="bento-ps"><span className="bento-ps-n" style={{color:'#10b981'}}>{completedTasks}</span><span className="bento-ps-l">Done</span></div>
+                    <div className="bento-ps"><span className="bento-ps-n" style={{color:'#f59e0b'}}>{totalTasks - completedTasks}</span><span className="bento-ps-l">Left</span></div>
+                  </div>
+                  {tasks.length > 0 && (
+                    <div className="bento-task-mini-list">
+                      {tasks.slice(0, 4).map(task => (
+                        <div key={task.id} className="bento-task-mini-row">
+                          <button className={`task-status-dot task-status-${task.status} task-status-btn`}
+                            onClick={e => toggleTaskStatus(task.id, e)}
+                            title={`${STATUS_LABELS[task.status]} — click to advance`}/>
+                          <span className={`bento-task-mini-title ${task.status === 'done' ? 'task-done-text' : ''}`}>{task.title}</span>
+                          <span className={`status-pill-mini status-${task.status}`}>{STATUS_LABELS[task.status]}</span>
+                        </div>
+                      ))}
+                      {tasks.length > 4 && <div className="bento-task-mini-more">+{tasks.length - 4} more</div>}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -771,7 +760,12 @@ const Dashboard = ({ onLogout }) => {
                       {item.priority === 'high' && '🔴'}{item.priority === 'medium' && '🟡'}
                     </div>
                   </div>
-                )) : <p className="no-deadlines">No upcoming deadlines</p>}
+                )) : (
+                  <div className="empty-state" style={{ padding: '1rem' }}>
+                    <div className="empty-icon" style={{ fontSize: '1.25rem', margin: '0 auto .25rem', display: 'flex' }}>🗓️</div>
+                    <p style={{ margin: 0, fontSize: '0.85rem' }}>No upcoming deadlines</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -779,7 +773,7 @@ const Dashboard = ({ onLogout }) => {
             <div className="bento-activity card bento-card-inner">
               <div className="bento-section-title">Recent Activity</div>
               <div className="activity-list">
-                {recentActivity.slice(0, 4).map((a, i) => (
+                {recentActivity.length > 0 ? recentActivity.slice(0, 4).map((a, i) => (
                   <div key={i} className="activity-item">
                     <div className="activity-avatar" style={{ backgroundColor: a.color }}>{a.avatar}</div>
                     <div className="activity-content">
@@ -787,11 +781,17 @@ const Dashboard = ({ onLogout }) => {
                       <span className="activity-time">{a.time}</span>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="empty-state" style={{ padding: '1rem' }}>
+                    <div className="empty-icon" style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>📭</div>
+                    <p style={{ margin: 0, fontSize: '0.85rem' }}>No recent activity</p>
+                  </div>
+                )}
               </div>
             </div>
 
-          </div>{/* /bento-grid */}
+          </div>
+          )}
         </div>
       </div>
 

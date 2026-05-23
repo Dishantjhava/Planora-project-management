@@ -13,7 +13,7 @@ services:
 
   frontend:
     build:
-      context: .
+      context: ./frontend
     container_name: planora-frontend
     ports:
       - '8080:80'

@@ -1,80 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Projects.css';
-import { getProjects, createProject, updateProject, deleteProject, createTask, deleteTask, updateTask, getTeamMembers, getTasks } from '../services/api.js';
+import { createProject, updateProject, deleteProject, createTask, deleteTask, updateTask } from '../services/api.js';
+import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
+import { SkeletonDashboard } from './Skeleton';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableTaskItem } from './SortableTaskItem';
 
 const TASK_CATEGORIES = ['Design','Development','Testing','Research','Documentation','Review','Deployment','Planning'];
 
-const Projects = ({ onLogout }) => {
+const Projects = () => {
+  const { logout } = useAuth();
+  const { projects, setProjects, tasks, setTasks, teamMembers, loading, projectsPagination, fetchMoreProjects } = useData();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast]             = useState({ show: false, message: '', type: '' });
 
-  // ── Data ──────────────────────────────────────────────────────────
-  const [projects, setProjects]       = useState([]);
-  const [tasks, setTasks]             = useState([]);
-  const [teamMembers, setTeamMembers] = useState([]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [projRes, teamRes, taskRes] = await Promise.all([
-          getProjects(),
-          getTeamMembers(),
-          getTasks(),
-        ]);
-
-        let members = [];
-        if (teamRes.success) {
-          members = teamRes.members.map(m => ({
-            id: m._id?.toString(),
-            name: m.user?.name || 'Unknown',
-            role: m.role,
-            avatar: m.user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2) || '??',
-            color: '#6366f1',
-          }));
-          setTeamMembers(members);
-        }
-
-        if (projRes.success) {
-          setProjects(projRes.projects.map(p => ({
-            ...p,
-            id: p._id?.toString(),
-            team: p.members?.length || 0,
-            tasks: 0,
-            completedTasks: 0,
-            progress: 0,
-          })));
-        }
-
-        if (taskRes.success) {
-          setTasks(taskRes.tasks.map(t => {
-            // normalize projectId to plain string always
-            const pid = typeof t.project === 'object'
-              ? (t.project?._id?.toString() || t.project?.toString())
-              : t.project?.toString();
-
-            // normalize assignee
-            const assigneeId = typeof t.assignedTo === 'object'
-              ? t.assignedTo?._id?.toString()
-              : t.assignedTo?.toString();
-
-            const assignee = members.find(m => m.id === assigneeId) || null;
-
-            return {
-              ...t,
-              id: t._id?.toString(),
-              projectId: pid,
-              assignee,
-            };
-          }));
-        }
-      } catch (err) {
-        console.error('Failed to fetch:', err);
-      }
-    };
-    fetchData();
-  }, []);
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setTasks((items) => {
+        const oldIndex = items.findIndex(t => t.id === active.id);
+        const newIndex = items.findIndex(t => t.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
 
   // ── UI state ──────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery]         = useState('');
@@ -82,6 +40,14 @@ const Projects = ({ onLogout }) => {
   const [sortBy, setSortBy]                   = useState('name');
   const [viewMode, setViewMode]               = useState('grid');
   const [selectedProject, setSelectedProject] = useState(null);
+
+  // ── Server-Side Search Debounce ───────────────────────────────────
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchData({ search: searchQuery, status: activeFilter });
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery, activeFilter]);
 
   // ── Modals ────────────────────────────────────────────────────────
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -301,13 +267,7 @@ const Projects = ({ onLogout }) => {
   };
 
   // ── Derived ───────────────────────────────────────────────────────
-  const filtered = projects
-    .filter(p => {
-      const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          p.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchFilter = activeFilter === 'all' || p.status.toLowerCase().replace(/\s+/g,'-') === activeFilter;
-      return matchSearch && matchFilter;
-    })
+  const filtered = [...projects]
     .sort((a,b) => {
       if (sortBy === 'name')     return a.name.localeCompare(b.name);
       if (sortBy === 'deadline') return new Date(a.deadline||a.dueDate) - new Date(b.deadline||b.dueDate);
@@ -317,11 +277,11 @@ const Projects = ({ onLogout }) => {
     });
 
   const filters = [
-    { key:'all',         label:'All',        count:projects.length },
-    { key:'in-progress', label:'In Progress', count:projects.filter(p=>p.status.toLowerCase().replace(/\s+/g,'-')==='in-progress').length },
-    { key:'review',      label:'Review',      count:projects.filter(p=>p.status.toLowerCase()==='review').length },
-    { key:'planning',    label:'Planning',    count:projects.filter(p=>p.status.toLowerCase()==='planning').length },
-    { key:'completed',   label:'Completed',   count:projects.filter(p=>p.status.toLowerCase()==='completed').length },
+    { key:'all',         label:'All' },
+    { key:'in-progress', label:'In Progress' },
+    { key:'review',      label:'Review' },
+    { key:'planning',    label:'Planning' },
+    { key:'completed',   label:'Completed' },
   ];
 
   const getDaysUntil = (dateStr) => {
@@ -412,7 +372,7 @@ const Projects = ({ onLogout }) => {
               <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
               New Project
             </button>
-            <div className="user-pill" onClick={onLogout} title="Logout">
+            <div className="user-pill" onClick={logout} title="Logout">
               <img src="https://ui-avatars.com/api/?name=Admin+User&background=14b8a6&color=fff" alt="User"/>
               <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M9 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H9" stroke="currentColor" strokeWidth="2"/><path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2"/><path d="M21 12H9" stroke="currentColor" strokeWidth="2"/></svg>
             </div>
@@ -427,7 +387,7 @@ const Projects = ({ onLogout }) => {
             <div className="proj-filters">
               {filters.map(f => (
                 <button key={f.key} className={`proj-filter-tab ${activeFilter===f.key?'active':''}`} onClick={() => setActiveFilter(f.key)}>
-                  {f.label}<span className="proj-filter-count">{f.count}</span>
+                  {f.label}
                 </button>
               ))}
             </div>
@@ -454,7 +414,9 @@ const Projects = ({ onLogout }) => {
           </div>
 
           {/* Projects Grid / List */}
-          {filtered.length === 0 ? (
+          {loading ? (
+            <SkeletonDashboard />
+          ) : filtered.length === 0 ? (
             <div className="proj-empty">
               <div className="proj-empty-icon">🔍</div>
               <h3>No projects found</h3>
@@ -578,6 +540,13 @@ const Projects = ({ onLogout }) => {
               })}
             </div>
           )}
+          {projectsPagination && projectsPagination.page < projectsPagination.pages && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+              <button className="proj-btn-secondary" onClick={fetchMoreProjects}>
+                Load More Projects
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -634,28 +603,20 @@ const Projects = ({ onLogout }) => {
                 {projectTasks(selectedProject.id).length === 0 ? (
                   <p className="proj-no-tasks">No tasks yet. Add one below!</p>
                 ) : (
-                  projectTasks(selectedProject.id).map(task => {
-                    const tDue = getDaysUntil(task.dueDate);
-                    return (
-                      <div key={task.id} className="proj-detail-task-row">
-                        <button className={`proj-task-dot task-status-${task.status}`} onClick={e => toggleTaskStatus(task.id, e)} title="Cycle status"/>
-                        <div className="proj-detail-task-info">
-                          <span className="proj-detail-task-title">{task.title}</span>
-                          {task.category && <span className="proj-detail-task-cat">{task.category}</span>}
-                        </div>
-                        <div className="proj-task-meta">
-                          {task.assignee && (
-                            <div className="proj-task-avatar" style={{background:task.assignee.color}} title={`Assigned to: ${task.assignee.name}`}>
-                              {task.assignee.avatar}
-                            </div>
-                          )}
-                          <span className={`proj-task-due due-${tDue.cls}`}>{tDue.label}</span>
-                          <span className="proj-task-priority" style={{color:priorityColor[task.priority]||'#94a3b8',fontSize:'.78rem',fontWeight:600}}>{task.priority}</span>
-                          <button className="proj-task-delete" onClick={e => handleDeleteTask(task.id, e)}>✕</button>
-                        </div>
-                      </div>
-                    );
-                  })
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={projectTasks(selectedProject.id).map(t => t.id)} strategy={verticalListSortingStrategy}>
+                      {projectTasks(selectedProject.id).map(task => (
+                        <SortableTaskItem
+                          key={task.id}
+                          task={task}
+                          toggleTaskStatus={toggleTaskStatus}
+                          handleDeleteTask={handleDeleteTask}
+                          getDaysUntil={getDaysUntil}
+                          priorityColor={priorityColor}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 )}
               </div>
             </div>

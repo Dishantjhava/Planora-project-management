@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Home.css';
-import { getProjects, createProject, createTask, getTeamMembers } from '../services/api.js';
+import { createProject, createTask } from '../services/api.js';
+import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 
 const DEFAULT_PROJECTS = [
   { id: 1, name: 'Website Redesign',       progress: 75, status: 'In Progress', team: 5,  deadline: '2026-02-15', priority: 'high',   tasks: 24, completedTasks: 18, description: 'Complete redesign of company website with modern UI/UX' },
@@ -18,47 +20,14 @@ const DEFAULT_TEAM = [
   { id: 4, name: 'John Smith',  role: 'Frontend Dev',    avatar: 'JS', status: 'offline', color: '#ec4899' },
 ];
 
-const Home = ({ onLogout }) => {
+const Home = () => {
+  const { logout } = useAuth();
+  const { projects, setProjects, teamMembers, tasks, notifications, setNotifications } = useData();
   const [sidebarOpen, setSidebarOpen]   = useState(true);
   const [toast, setToast]               = useState({ show: false, message: '', type: '' });
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
-
-const [projects, setProjects] = useState([]);
-const [teamMembers, setTeamMembers] = useState([]);
-const [tasks, setTasks] = useState([]);
-const [loading, setLoading] = useState(true);
-
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const [projRes, teamRes] = await Promise.all([
-        getProjects(),
-        getTeamMembers(),
-      ]);
-      if (projRes.success) setProjects(projRes.projects);
-      if (teamRes.success) setTeamMembers(teamRes.members.map(m => ({
-        id: m._id,
-        name: m.user?.name || 'Unknown',
-        role: m.role,
-        avatar: m.user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2) || '??',
-        status: m.availability === 'Available' ? 'online' : m.availability === 'Busy' ? 'away' : 'offline',
-        color: '#6366f1',
-      })));
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchData();
-}, []);
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'New task assigned',    message: 'You have been assigned to "API Integration"', time: '10 min ago', read: false, type: 'task' },
-    { id: 2, title: 'Deadline approaching', message: 'Marketing Campaign due in 2 days',             time: '1 hr ago',   read: false, type: 'warning' },
-    { id: 3, title: 'Comment received',     message: 'Mike commented on your task',                  time: '3 hrs ago',  read: true,  type: 'comment' },
-  ]);
 
   // New Project mini-form
   const [newProject, setNewProject] = useState({ name: '', priority: 'medium', deadline: '' });
@@ -87,11 +56,13 @@ useEffect(() => {
     ? Math.round(projects.reduce((s, p) => s + p.progress, 0) / projects.length)
     : 0;
 
+  const user = JSON.parse(localStorage.getItem('planora_user'));
+
   const quickStats = [
-    { label: 'Total Projects', value: totalProjects.toString(),  icon: '📊', color: '#6366f1' },
-    { label: 'Active Tasks',   value: activeTasks.toString(),    icon: '✓',  color: '#10b981' },
-    { label: 'Team Members',   value: totalMembers.toString(),   icon: '👥', color: '#f59e0b' },
-    { label: 'Avg Progress',   value: `${avgProgress}%`,         icon: '🎯', color: '#ec4899' },
+    { label: 'Total Projects', value: totalProjects.toString(),  icon: '📊', color: '#6366f1', emptyText: totalProjects === 0 ? 'Start a project' : '' },
+    { label: 'Active Tasks',   value: activeTasks.toString(),    icon: '✓',  color: '#10b981', emptyText: activeTasks === 0 ? 'Assign tasks' : '' },
+    { label: 'Team Members',   value: totalMembers.toString(),   icon: '👥', color: '#f59e0b', emptyText: totalMembers === 0 ? 'Invite team' : '' },
+    { label: 'Avg Progress',   value: `${avgProgress}%`,         icon: '🎯', color: '#ec4899', emptyText: totalProjects === 0 ? 'Track progress' : '' },
   ];
 
  const recentProjects = [...projects].slice(0, 3);
@@ -225,7 +196,27 @@ const handleQuickCreateTask = async () => {
             <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Calendar</span>}
           </a>
+          <a href="#" className="nav-item">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            {sidebarOpen && <span>Reports</span>}
+          </a>
+          <a href="#" className="nav-item">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M18 8C18 6.41 17.37 4.88 16.24 3.76C15.12 2.63 13.59 2 12 2C10.41 2 8.88 2.63 7.76 3.76C6.63 4.88 6 6.41 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M13.73 21C13.55 21.3 13.3 21.55 12.99 21.73C12.69 21.9 12.35 22 12 22C11.65 22 11.31 21.9 11.01 21.73C10.7 21.55 10.45 21.3 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            {sidebarOpen && <span>Notifications</span>}
+          </a>
+          
+          {sidebarOpen && (
+            <div className="sidebar-upgrade-card">
+              <div className="upgrade-icon">🚀</div>
+              <div className="upgrade-text">
+                <h4>Upgrade to Pro</h4>
+                <p>Unlimited projects & features</p>
+              </div>
+              <button className="upgrade-btn">Upgrade Now</button>
+            </div>
+          )}
         </nav>
+        
         <div className="sidebar-footer">
           <a href="#" className="nav-item">
             <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/><path d="M19.4 15A7.5 7.5 0 1 1 12 7.5" stroke="currentColor" strokeWidth="2"/></svg>
@@ -247,18 +238,18 @@ const handleQuickCreateTask = async () => {
           </div>
           <div className="header-right">
             <button className="icon-button" title="Notifications">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M18 8C18 6.41 17.37 4.88 16.24 3.76C15.12 2.63 13.59 2 12 2C10.41 2 8.88 2.63 7.76 3.76C6.63 4.88 6 6.41 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2"/><path d="M13.73 21C13.55 21.3 13.3 21.55 12.99 21.73C12.69 21.9 12.35 22 12 22C11.65 22 11.31 21.9 11.01 21.73C10.7 21.55 10.45 21.3 10.27 21" stroke="currentColor" strokeWidth="2"/></svg>
+              <svg viewBox="0 0 24 24" fill="none"><path d="M18 8C18 6.41 17.37 4.88 16.24 3.76C15.12 2.63 13.59 2 12 2C10.41 2 8.88 2.63 7.76 3.76C6.63 4.88 6 6.41 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M13.73 21C13.55 21.3 13.3 21.55 12.99 21.73C12.69 21.9 12.35 22 12 22C11.65 22 11.31 21.9 11.01 21.73C10.7 21.55 10.45 21.3 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
             </button>
             <div className="user-menu">
               <div className="user-avatar">
-                <img src="https://ui-avatars.com/api/?name=Admin+User&background=14b8a6&color=fff" alt="User"/>
+                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(JSON.parse(localStorage.getItem('planora_user'))?.name || 'Admin User')}&background=14b8a6&color=fff`} alt="User"/>
               </div>
               <div className="user-info">
                 <span className="user-name">{JSON.parse(localStorage.getItem('planora_user'))?.name || 'User'}</span>
                 <span className="user-role">{JSON.parse(localStorage.getItem('planora_user'))?.role || 'Member'}</span>
               </div>
-              <button className="dropdown-button" onClick={onLogout} title="Logout">
+              <button className="dropdown-button" onClick={logout} title="Logout">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H9" stroke="currentColor" strokeWidth="2"/><path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2"/><path d="M21 12H9" stroke="currentColor" strokeWidth="2"/></svg>
               </button>
             </div>
@@ -271,7 +262,7 @@ const handleQuickCreateTask = async () => {
           {/* Welcome Banner */}
           <div className="welcome-banner">
             <div className="banner-content">
-              <div className="banner-eyebrow">👋 Hello, Admin</div>
+              <div className="banner-eyebrow">👋 Hello, {user?.name ? user.name.split(' ')[0] : 'Admin'}</div>
               <h1>Welcome to Planora</h1>
               <p>You have <strong>{activeTasks} active tasks</strong> across <strong>{totalProjects} projects</strong>. Here's your overview for today.</p>
               <div className="banner-actions">
@@ -324,6 +315,7 @@ const handleQuickCreateTask = async () => {
                 <div className="stat-content">
                   <div className="stat-value">{stat.value}</div>
                   <div className="stat-label">{stat.label}</div>
+                  {stat.emptyText && <div className="stat-empty-sub">{stat.emptyText}</div>}
                 </div>
                 <div className="stat-arrow">→</div>
               </div>
@@ -337,10 +329,18 @@ const handleQuickCreateTask = async () => {
               <button className="btn-link" onClick={() => navigate('/projects')}>View All →</button>
             </div>
             {recentProjects.length === 0 ? (
-              <div className="empty-home-state">
-                <div className="empty-home-icon">📂</div>
-                <p>No projects yet. Create your first one!</p>
-                <button className="btn-primary" onClick={() => setShowAddProjectModal(true)}>Create Project</button>
+              <div className="empty-home-state empty-state-enhanced">
+                <div className="empty-home-illustration">
+                  <div className="orbit-circle orbit-1"></div>
+                  <div className="orbit-circle orbit-2"></div>
+                  <div className="empty-home-icon-glow">✨</div>
+                </div>
+                <h3>Let's get started!</h3>
+                <p>Your workspace is ready. Create a new project to start organizing your team's work, tracking progress, and hitting deadlines.</p>
+                <button className="btn-primary btn-pulse" onClick={() => setShowAddProjectModal(true)}>
+                  <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  Create Your First Project
+                </button>
               </div>
             ) : (
               <div className="projects-grid">
@@ -383,8 +383,8 @@ const handleQuickCreateTask = async () => {
           <div className="quick-actions">
             <h2>Quick Actions</h2>
             <div className="actions-grid">
-              <button className="action-card" onClick={() => setShowAddProjectModal(true)}>
-                <div className="action-icon" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>📝</div>
+              <button className="action-card action-card-primary" onClick={() => setShowAddProjectModal(true)}>
+                <div className="action-icon" style={{ background: 'rgba(20,184,166,0.2)', color: '#5eead4' }}>🚀</div>
                 <div className="action-text">
                   <h3>Create Project</h3>
                   <p>Start a new project</p>
@@ -419,26 +419,28 @@ const handleQuickCreateTask = async () => {
           </div>
 
           {/* Recent Notifications */}
-          <div className="recent-notifications">
-            <div className="section-header">
-              <h2>Recent Notifications</h2>
-              {unreadCount > 0 && (
-                <button className="btn-link" onClick={markAllRead}>Mark all read</button>
-              )}
-            </div>
-            <div className="notif-list">
-              {notifications.slice(0, 4).map(n => (
-                <div key={n.id} className={`notif-item ${n.read ? 'read' : ''}`}>
-                  <div className={`notif-dot ${n.type}`}></div>
-                  <div className="notif-body">
-                    <strong>{n.title}</strong>
-                    <span>{n.message}</span>
+          {notifications.length > 0 && (
+            <div className="recent-notifications">
+              <div className="section-header">
+                <h2>Recent Notifications</h2>
+                {unreadCount > 0 && (
+                  <button className="btn-link" onClick={markAllRead}>Mark all read</button>
+                )}
+              </div>
+              <div className="notif-list">
+                {notifications.slice(0, 4).map(n => (
+                  <div key={n.id} className={`notif-item ${n.read ? 'read' : ''}`}>
+                    <div className={`notif-dot ${n.type}`}></div>
+                    <div className="notif-body">
+                      <strong>{n.title}</strong>
+                      <span>{n.message}</span>
+                    </div>
+                    <span className="notif-time">{n.time}</span>
                   </div>
-                  <span className="notif-time">{n.time}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
         </div>{/* /home-content */}
       </div>{/* /main-content */}
