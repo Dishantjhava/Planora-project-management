@@ -11,9 +11,7 @@ const AVATAR_COLORS = [
 ];
 
 const ROLES = [
-  'Frontend Dev', 'Backend Dev', 'Full Stack Dev',
-  'UI/UX Designer', 'Lead Designer', 'Project Manager',
-  'QA Engineer', 'DevOps Engineer', 'Data Analyst', 'Product Owner'
+  'Admin', 'Project Manager', 'Developer', 'Designer', 'QA'
 ];
 
 const TASK_CATEGORIES = [
@@ -41,7 +39,7 @@ const Dashboard = () => {
   // ── Invite ────────────────────────────────────────────────────────
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showTeamModal, setShowTeamModal]     = useState(false);
-  const [inviteForm, setInviteForm]           = useState({ name: '', email: '', role: 'Frontend Dev' });
+  const [inviteForm, setInviteForm]           = useState({ name: '', email: '', role: 'Developer' });
   const [inviteErrors, setInviteErrors]       = useState({});
   const [inviteStep, setInviteStep]           = useState(1);
 
@@ -203,7 +201,7 @@ const Dashboard = () => {
       errors.email = 'Enter a valid email address';
     else if (teamMembers.some(m => m.email === inviteForm.email.toLowerCase()) ||
              pendingInvites.some(i => i.email === inviteForm.email.toLowerCase()))
-      errors.email = 'This email has already been invited';
+      errors.email = 'This email has already been added';
     setInviteErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -219,22 +217,22 @@ const Dashboard = () => {
     };
     setPendingInvites(prev => [...prev, invite]);
     setNotifications(prev => [{
-      id: Date.now(), title: 'Invite Sent',
-      message: `Invitation sent to ${invite.name} (${invite.email})`,
+      id: Date.now(), title: 'Member Added',
+      message: `Member ${invite.name} (${invite.email}) added (pending approval)`,
       time: 'Just now', read: false, type: 'task',
     }, ...prev]);
     setInviteStep(2);
   };
 
   const handleAcceptInvite = (invite) => {
-    setTeamMembers(prev => [...prev, { ...invite, status: 'online' }]);
+    setTeamMembers(prev => [...prev, { ...invite, status: 'offline' }]);
     setPendingInvites(prev => prev.filter(i => i.id !== invite.id));
-    showToast(`${invite.name} has joined the team! 🎉`);
+    showToast(`${invite.name}'s membership activated! 🎉`);
   };
 
   const handleRevokeInvite = (inviteId) => {
     setPendingInvites(prev => prev.filter(i => i.id !== inviteId));
-    showToast('Invitation revoked', 'error');
+    showToast('Pending member removed', 'error');
   };
 
   const handleRemoveMember = (memberId) => {
@@ -245,7 +243,7 @@ const Dashboard = () => {
   };
 
   const openInviteModal = () => {
-    setInviteForm({ name: '', email: '', role: 'Frontend Dev' });
+    setInviteForm({ name: '', email: '', role: 'Developer' });
     setInviteErrors({});
     setInviteStep(1);
     setShowInviteModal(true);
@@ -255,16 +253,13 @@ const Dashboard = () => {
   const validateForm = () => {
     const errors = {};
     if (!projectForm.name.trim())                errors.name     = 'Project name is required';
-    if (!projectForm.deadline)                   errors.deadline = 'Deadline is required';
-    if (!projectForm.team || projectForm.team < 1) errors.team   = 'Team size must be at least 1';
-    if (!projectForm.tasks || projectForm.tasks < 1) errors.tasks = 'Tasks must be at least 1';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleAddProject = () => {
     setEditingProject(null);
-    setProjectForm({ name: '', description: '', deadline: '', priority: 'medium', team: '', status: 'planning', tasks: '', completedTasks: 0 });
+    setProjectForm({ name: '', description: '', deadline: '', priority: 'medium', status: 'planning' });
     setFormErrors({});
     setShowAddProject(true);
   };
@@ -272,10 +267,8 @@ const Dashboard = () => {
   const handleEditProject = (project) => {
     setEditingProject(project);
     setProjectForm({
-      name: project.name, description: project.description, deadline: project.deadline,
-      priority: project.priority, team: project.team.toString(),
-      status: project.status.toLowerCase().replace(' ', '-'),
-      tasks: project.tasks.toString(), completedTasks: project.completedTasks
+      name: project.name, description: project.description || '', deadline: project.deadline || '',
+      priority: project.priority, status: project.status.toLowerCase().replace(' ', '-')
     });
     setFormErrors({});
     setSelectedProject(null);
@@ -284,21 +277,18 @@ const Dashboard = () => {
 
   const handleSaveProject = () => {
     if (!validateForm()) return;
-    const progress    = Math.round((projectForm.completedTasks / projectForm.tasks) * 100);
     const statusLabel = projectForm.status.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     if (editingProject) {
       setProjects(prev => prev.map(p => p.id === editingProject.id
         ? { ...p, name: projectForm.name, description: projectForm.description, deadline: projectForm.deadline,
-            priority: projectForm.priority, team: parseInt(projectForm.team), status: statusLabel,
-            tasks: parseInt(projectForm.tasks), completedTasks: projectForm.completedTasks, progress }
+            priority: projectForm.priority, status: statusLabel }
         : p));
       showToast('Project updated successfully!');
     } else {
       setProjects(prev => [...prev, {
         id: Date.now(), name: projectForm.name, description: projectForm.description,
-        deadline: projectForm.deadline, priority: projectForm.priority, team: parseInt(projectForm.team),
-        status: statusLabel, tasks: parseInt(projectForm.tasks),
-        completedTasks: projectForm.completedTasks, progress
+        deadline: projectForm.deadline, priority: projectForm.priority,
+        status: statusLabel, members: [], team: 0, tasks: 0, completedTasks: 0, progress: 0
       }]);
       showToast('Project created successfully!');
     }
@@ -321,7 +311,7 @@ const Dashboard = () => {
 
   const handleExportCSV = () => {
     const headers = ['ID','Name','Status','Priority','Progress','Team','Tasks','Completed','Deadline'];
-    const rows    = projects.map(p => [p.id, p.name, p.status, p.priority, `${p.progress}%`, p.team, p.tasks, p.completedTasks, p.deadline]);
+    const rows    = projectsWithStats.map(p => [p.id, p.name, p.status, p.priority, `${p.progress}%`, p.team, p.tasks, p.completedTasks, p.deadline]);
     const csv     = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
@@ -332,11 +322,37 @@ const Dashboard = () => {
   };
 
   // ── Derived ───────────────────────────────────────────────────────
+  const toStr = (val) => {
+    if (!val) return '';
+    if (typeof val === 'object') return val._id?.toString() || val.toString();
+    return val.toString();
+  };
+
+  const projectsWithStats = useMemo(() => {
+    return projects.map(p => {
+      const pid = toStr(p.id);
+      const pTasks = tasks.filter(t => toStr(t.projectId) === pid);
+      const completed = pTasks.filter(t => t.status === 'done').length;
+      const progress = pTasks.length > 0 ? Math.round((completed / pTasks.length) * 100) : 0;
+      return {
+        ...p,
+        tasks: pTasks.length,
+        completedTasks: completed,
+        progress,
+        team: p.members?.length || p.team || 0
+      };
+    });
+  }, [projects, tasks]);
+
+  const activeSelectedProject = selectedProject
+    ? projectsWithStats.find(p => toStr(p.id) === toStr(selectedProject.id))
+    : null;
+
   const activeTasks  = tasks.filter(t => t.status !== 'done').length;
   const doneTasks    = tasks.filter(t => t.status === 'done').length;
 
   const stats = [
-    { label: 'Total Projects', value: projects.length.toString(),      icon: '📊', color: '#6366f1', trend: projects.length > 0 ? '+12%' : '0 new', trendUp: projects.length > 0 },
+    { label: 'Total Projects', value: projectsWithStats.length.toString(),      icon: '📊', color: '#6366f1', trend: `${projectsWithStats.length} total`, trendUp: projectsWithStats.length > 0 },
     { label: 'Active Tasks',   value: activeTasks.toString(),          icon: '✓',  color: '#10b981', trend: `${doneTasks} done`, trendUp: doneTasks > 0 },
     { label: 'Team Members',   value: teamMembers.length.toString(),   icon: '👥', color: '#f59e0b', trend: `${pendingInvites.length} pending`, trendUp: pendingInvites.length > 0 },
     { label: 'Overall Progress', value: `${overallProgress}%`,        icon: '🎯', color: '#ec4899', trend: `${completedTasks}/${totalTasks} tasks`, trendUp: completedTasks > 0 },
@@ -344,7 +360,7 @@ const Dashboard = () => {
 
   const recentActivity = [];
 
-  const upcomingDeadlines = projects
+  const upcomingDeadlines = projectsWithStats
     .filter(p => new Date(p.deadline) > new Date())
     .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
     .slice(0, 3)
@@ -354,7 +370,7 @@ const Dashboard = () => {
       priority: p.priority,
     }));
 
-  const filteredProjects = [...projects].sort((a, b) => {
+  const filteredProjects = [...projectsWithStats].sort((a, b) => {
       if (sortBy === 'name')     return a.name.localeCompare(b.name);
       if (sortBy === 'deadline') return new Date(a.deadline) - new Date(b.deadline);
       if (sortBy === 'progress') return b.progress - a.progress;
@@ -393,25 +409,30 @@ const Dashboard = () => {
             <svg viewBox="0 0 24 24" fill="none"><path d="M9 11L12 14L22 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 12V19C21 19.53 20.79 20.04 20.41 20.41C20.04 20.79 19.53 21 19 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Projects</span>}
           </a>
-          <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); setShowTeamModal(true); }}>
+          <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); navigate('/team'); }}>
             <svg viewBox="0 0 24 24" fill="none"><path d="M17 21V19C17 17.93 16.58 16.92 15.83 16.17C15.08 15.42 14.06 15 13 15H5C3.93 15 2.92 15.42 2.17 16.17C1.42 16.92 1 17.93 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M23 21V19C23 18.04 22.67 17.14 22.09 16.43" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M16 3.13C16.9 3.36 17.68 3.89 18.24 4.62C18.8 5.36 19.1 6.26 19.1 7.19C19.1 8.12 18.8 9.02 18.24 9.76" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Team</span>}
           </a>
-          <a href="#" className="nav-item">
+          <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); navigate('/calendar'); }}>
             <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Calendar</span>}
           </a>
-          <a href="#" className="nav-item">
+          <a href="#" className="nav-item" onClick={e => { e.preventDefault(); navigate('/reports'); }}>
             <svg viewBox="0 0 24 24" fill="none"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Reports</span>}
           </a>
-          <a href="#" className="nav-item">
+          <a href="#" className="nav-item" onClick={e => { e.preventDefault(); navigate('/notifications'); }}>
             <svg viewBox="0 0 24 24" fill="none"><path d="M18 8C18 6.41 17.37 4.88 16.24 3.76C15.12 2.63 13.59 2 12 2C10.41 2 8.88 2.63 7.76 3.76C6.63 4.88 6 6.41 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M13.73 21C13.55 21.3 13.3 21.55 12.99 21.73C12.69 21.9 12.35 22 12 22C11.65 22 11.31 21.9 11.01 21.73C10.7 21.55 10.45 21.3 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            {sidebarOpen && <span>Notifications</span>}
+            {sidebarOpen && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>Notifications</span>
+                {notifications.filter(n => !n.read).length > 0 && <span className="sidebar-notif-badge" style={{ background: '#00b4a6', color: '#0f172a', padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold' }}>{notifications.filter(n => !n.read).length}</span>}
+              </div>
+            )}
           </a>
         </nav>
         <div className="sidebar-footer">
-          <a href="#" className="nav-item">
+          <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); navigate('/settings'); }}>
             <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/><path d="M19.4 15A7.5 7.5 0 1 1 12 7.5" stroke="currentColor" strokeWidth="2"/></svg>
             {sidebarOpen && <span>Settings</span>}
           </a>
@@ -444,14 +465,14 @@ const Dashboard = () => {
               {pendingInvites.length > 0 && <span className="invite-badge">{pendingInvites.length}</span>}
             </button>
             <div className="notification-wrapper">
-              <button className="icon-button" onClick={() => setShowNotifications(!showNotifications)}>
+              <button className="icon-button" onClick={() => navigate('/notifications')}>
                 <svg viewBox="0 0 24 24" fill="none"><path d="M18 8C18 6.41 17.37 4.88 16.24 3.76C15.12 2.63 13.59 2 12 2C10.41 2 8.88 2.63 7.76 3.76C6.63 4.88 6 6.41 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2"/><path d="M13.73 21C13.55 21.3 13.3 21.55 12.99 21.73C12.69 21.9 12.35 22 12 22C11.65 22 11.31 21.9 11.01 21.73C10.7 21.55 10.45 21.3 10.27 21" stroke="currentColor" strokeWidth="2"/></svg>
                 {notifications.filter(n => !n.read).length > 0 && (
                   <span className="notification-badge">{notifications.filter(n => !n.read).length}</span>
                 )}
               </button>
               {showNotifications && (
-                <div className="notifications-dropdown">
+                <div className="notifications-dropdown" style={{ display: 'none' }}>
                   <div className="notifications-header">
                     <h3>Notifications</h3>
                     <button onClick={() => setShowNotifications(false)}>✕</button>
@@ -761,9 +782,9 @@ const Dashboard = () => {
                     </div>
                   </div>
                 )) : (
-                  <div className="empty-state" style={{ padding: '1rem' }}>
-                    <div className="empty-icon" style={{ fontSize: '1.25rem', margin: '0 auto .25rem', display: 'flex' }}>🗓️</div>
-                    <p style={{ margin: 0, fontSize: '0.85rem' }}>No upcoming deadlines</p>
+                  <div className="deadlines-empty">
+                    <span style={{ fontSize: '1rem' }}>🗓️</span>
+                    <p>No upcoming deadlines</p>
                   </div>
                 )}
               </div>
@@ -831,9 +852,11 @@ const Dashboard = () => {
                 </div>
                 <div className="form-group">
                   <label>Category</label>
-                  <select value={taskForm.category} onChange={e => setTaskForm({ ...taskForm, category: e.target.value })}>
-                    {TASK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <input type="text" list="dash-task-categories" placeholder="e.g. Design"
+                    value={taskForm.category} onChange={e => setTaskForm({ ...taskForm, category: e.target.value })}/>
+                  <datalist id="dash-task-categories">
+                    {TASK_CATEGORIES.map(c => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
               </div>
               <div className="form-group">
@@ -841,7 +864,7 @@ const Dashboard = () => {
                 <div className="assignee-selector">
                   <div className={`assignee-option ${taskForm.assigneeId === '' ? 'selected' : ''}`}
                     onClick={() => setTaskForm({ ...taskForm, assigneeId: '' })}>
-                    <div className="assignee-avatar unassigned">?</div>
+                    <div className="assignee-avatar unassigned">👤</div>
                     <span>Unassigned</span>
                   </div>
                   {teamMembers.map(m => (
@@ -934,7 +957,7 @@ const Dashboard = () => {
             {inviteStep === 1 ? (
               <>
                 <div className="modal-header">
-                  <div><h2>Invite Team Member</h2><p className="modal-subtitle">Send an invitation to join Planora</p></div>
+                  <div><h2>Add Team Member</h2><p className="modal-subtitle">Add a new member to join your workspace</p></div>
                   <button className="modal-close" onClick={() => setShowInviteModal(false)}>✕</button>
                 </div>
                 <div className="modal-body">
@@ -971,7 +994,7 @@ const Dashboard = () => {
                 </div>
                 <div className="modal-footer">
                   <button className="btn-secondary" onClick={() => setShowInviteModal(false)}>Cancel</button>
-                  <button className="btn-primary" onClick={handleSendInvite}>Send Invite</button>
+                  <button className="btn-primary" onClick={handleSendInvite}>Add Member</button>
                 </div>
               </>
             ) : (
@@ -981,12 +1004,12 @@ const Dashboard = () => {
                 </div>
                 <div className="invite-success">
                   <div className="success-icon-circle">✓</div>
-                  <h2>Invite Sent!</h2>
-                  <p>An invitation has been sent to</p>
+                  <h2>Member Added!</h2>
+                  <p>A new member entry has been created for</p>
                   <strong className="invite-email-highlight">{inviteForm.email}</strong>
-                  <p className="success-note">They will appear in your team once they accept the invite.</p>
+                  <p className="success-note">They will appear in your active team once their membership is accepted.</p>
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                    <button className="btn-secondary" onClick={() => { setInviteStep(1); setInviteForm({ name: '', email: '', role: 'Frontend Dev' }); }}>Invite Another</button>
+                    <button className="btn-secondary" onClick={() => { setInviteStep(1); setInviteForm({ name: '', email: '', role: 'Developer' }); }}>Add Another</button>
                     <button className="btn-primary" onClick={() => setShowInviteModal(false)}>Done</button>
                   </div>
                 </div>
@@ -1001,11 +1024,11 @@ const Dashboard = () => {
         <div className="modal-overlay" onClick={() => setShowTeamModal(false)}>
           <div className="modal modal-large team-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div><h2>Team Management</h2><p className="modal-subtitle">{teamMembers.length} members · {pendingInvites.length} pending</p></div>
+              <div><h2>Team Management</h2><p className="modal-subtitle">{teamMembers.length} members · {pendingInvites.length} pending approval</p></div>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 <button className="btn-primary-small" onClick={() => { setShowTeamModal(false); openInviteModal(); }}>
                   <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
-                  Invite
+                  Add Member
                 </button>
                 <button className="modal-close" onClick={() => setShowTeamModal(false)}>✕</button>
               </div>
@@ -1040,7 +1063,7 @@ const Dashboard = () => {
               </div>
               {pendingInvites.length > 0 && (
                 <div className="team-section">
-                  <div className="team-section-header"><h4>Pending Invites</h4><span className="team-section-count pending">{pendingInvites.length}</span></div>
+                  <div className="team-section-header"><h4>Pending Approvals</h4><span className="team-section-count pending">{pendingInvites.length}</span></div>
                   <div className="team-members-full">
                     {pendingInvites.map(invite => (
                       <div key={invite.id} className="team-member-row pending-row">
@@ -1049,7 +1072,7 @@ const Dashboard = () => {
                           <div className="member-name">{invite.name}</div>
                           <div className="member-role">{invite.role}</div>
                           <div className="member-email">{invite.email}</div>
-                          <div className="invite-sent-time">Invited: {invite.sentAt}</div>
+                          <div className="invite-sent-time">Added: {invite.sentAt}</div>
                         </div>
                         <div className="member-actions">
                           <span className="status-pill pending-pill">⏳ Pending</span>
@@ -1091,11 +1114,9 @@ const Dashboard = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Deadline *</label>
+                  <label>Deadline</label>
                   <input type="date" value={projectForm.deadline}
-                    onChange={e => setProjectForm({ ...projectForm, deadline: e.target.value })}
-                    className={formErrors.deadline ? 'error' : ''}/>
-                  {formErrors.deadline && <span className="error-text">{formErrors.deadline}</span>}
+                    onChange={e => setProjectForm({ ...projectForm, deadline: e.target.value })}/>
                 </div>
                 <div className="form-group">
                   <label>Priority</label>
@@ -1106,32 +1127,13 @@ const Dashboard = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Team Size *</label>
-                  <input type="number" placeholder="Number of members" min="1" value={projectForm.team}
-                    onChange={e => setProjectForm({ ...projectForm, team: e.target.value })}
-                    className={formErrors.team ? 'error' : ''}/>
-                  {formErrors.team && <span className="error-text">{formErrors.team}</span>}
-                </div>
-                <div className="form-group">
                   <label>Status</label>
                   <select value={projectForm.status} onChange={e => setProjectForm({ ...projectForm, status: e.target.value })}>
-                    <option value="planning">Planning</option><option value="in-progress">In Progress</option><option value="review">Review</option>
+                    <option value="planning">Planning</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="review">Review</option>
+                    <option value="completed">Completed</option>
                   </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Total Tasks *</label>
-                  <input type="number" placeholder="Number of tasks" min="1" value={projectForm.tasks}
-                    onChange={e => setProjectForm({ ...projectForm, tasks: e.target.value })}
-                    className={formErrors.tasks ? 'error' : ''}/>
-                  {formErrors.tasks && <span className="error-text">{formErrors.tasks}</span>}
-                </div>
-                <div className="form-group">
-                  <label>Completed Tasks</label>
-                  <input type="number" placeholder="Completed tasks" min="0" max={projectForm.tasks || 0}
-                    value={projectForm.completedTasks}
-                    onChange={e => setProjectForm({ ...projectForm, completedTasks: parseInt(e.target.value) || 0 })}/>
                 </div>
               </div>
             </div>
@@ -1144,23 +1146,23 @@ const Dashboard = () => {
       )}
 
       {/* ══ PROJECT DETAIL MODAL ══ */}
-      {selectedProject && (
+      {activeSelectedProject && (
         <div className="modal-overlay" onClick={() => setSelectedProject(null)}>
           <div className="modal modal-large" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <h2>{selectedProject.name}</h2>
-                <p className="modal-subtitle">{selectedProject.description}</p>
+                <h2>{activeSelectedProject.name}</h2>
+                <p className="modal-subtitle">{activeSelectedProject.description}</p>
               </div>
               <button className="modal-close" onClick={() => setSelectedProject(null)}>✕</button>
             </div>
             <div className="modal-body">
               <div className="project-details-grid">
                 {[
-                  { label: 'Status',   value: <span className={`status-badge status-${selectedProject.status.toLowerCase().replace(' ','-')}`}>{selectedProject.status}</span> },
-                  { label: 'Priority', value: <span className={`priority-badge priority-${selectedProject.priority}`}>{selectedProject.priority === 'high' && '🔴'}{selectedProject.priority === 'medium' && '🟡'}{selectedProject.priority === 'low' && '🟢'} {selectedProject.priority.toUpperCase()}</span> },
-                  { label: 'Team Size', value: `${selectedProject.team} members` },
-                  { label: 'Deadline', value: new Date(selectedProject.deadline).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) },
+                  { label: 'Status',   value: <span className={`status-badge status-${activeSelectedProject.status.toLowerCase().replace(' ','-')}`}>{activeSelectedProject.status}</span> },
+                  { label: 'Priority', value: <span className={`priority-badge priority-${activeSelectedProject.priority}`}>{activeSelectedProject.priority === 'high' && '🔴'}{activeSelectedProject.priority === 'medium' && '🟡'}{activeSelectedProject.priority === 'low' && '🟢'} {activeSelectedProject.priority.toUpperCase()}</span> },
+                  { label: 'Team Size', value: `${activeSelectedProject.team} members` },
+                  { label: 'Deadline', value: new Date(activeSelectedProject.deadline).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) },
                 ].map((item, i) => (
                   <div key={i} className="detail-card">
                     <div className="detail-label">{item.label}</div>
@@ -1172,22 +1174,22 @@ const Dashboard = () => {
                 <div className="detail-label">Progress</div>
                 <div className="detail-progress-bar">
                   <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${selectedProject.progress}%`, backgroundColor: selectedProject.progress >= 75 ? '#10b981' : selectedProject.progress >= 50 ? '#f59e0b' : '#6366f1' }}></div>
+                    <div className="progress-fill" style={{ width: `${activeSelectedProject.progress}%`, backgroundColor: activeSelectedProject.progress >= 75 ? '#10b981' : activeSelectedProject.progress >= 50 ? '#f59e0b' : '#6366f1' }}></div>
                   </div>
-                  <span className="progress-percentage">{selectedProject.progress}%</span>
+                  <span className="progress-percentage">{activeSelectedProject.progress}%</span>
                 </div>
-                <div className="tasks-summary">{selectedProject.completedTasks} of {selectedProject.tasks} tasks completed</div>
+                <div className="tasks-summary">{activeSelectedProject.completedTasks} of {activeSelectedProject.tasks} tasks completed</div>
               </div>
 
               {/* Tasks inside detail modal — all with status toggle */}
-              {tasks.filter(t => t.projectId === selectedProject.id).length > 0 && (
+              {tasks.filter(t => toStr(t.projectId) === toStr(activeSelectedProject.id)).length > 0 && (
                 <div className="detail-tasks-section">
                   <div className="detail-label" style={{ marginBottom: '0.75rem' }}>
-                    Tasks ({tasks.filter(t => t.projectId === selectedProject.id).length})
-                    · {tasks.filter(t => t.projectId === selectedProject.id && t.status === 'done').length} done
+                    Tasks ({tasks.filter(t => toStr(t.projectId) === toStr(activeSelectedProject.id)).length})
+                    · {tasks.filter(t => toStr(t.projectId) === toStr(activeSelectedProject.id) && t.status === 'done').length} done
                   </div>
                   <div className="detail-tasks-list">
-                    {tasks.filter(t => t.projectId === selectedProject.id).map(task => {
+                    {tasks.filter(t => toStr(t.projectId) === toStr(activeSelectedProject.id)).map(task => {
                       const due = getDaysUntil(task.dueDate);
                       return (
                         <div key={task.id} className="detail-task-item">
@@ -1218,11 +1220,11 @@ const Dashboard = () => {
               )}
             </div>
             <div className="modal-footer">
-              <button className="btn-danger" onClick={() => handleDeleteProject(selectedProject.id)}>Delete</button>
-              <button className="btn-task-small" onClick={() => { setSelectedProject(null); openAddTaskModal(selectedProject.id.toString()); }}>+ Add Task</button>
+              <button className="btn-danger" onClick={() => handleDeleteProject(activeSelectedProject.id)}>Delete</button>
+              <button className="btn-task-small" onClick={() => { setSelectedProject(null); openAddTaskModal(activeSelectedProject.id.toString()); }}>+ Add Task</button>
               <div style={{ flex: 1 }}></div>
               <button className="btn-secondary" onClick={() => setSelectedProject(null)}>Close</button>
-              <button className="btn-primary" onClick={() => handleEditProject(selectedProject)}>Edit Project</button>
+              <button className="btn-primary" onClick={() => handleEditProject(activeSelectedProject)}>Edit Project</button>
             </div>
           </div>
         </div>

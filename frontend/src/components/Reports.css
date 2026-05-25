@@ -1,0 +1,621 @@
+/* ── Reports & Analytics Page CSS ── */
+
+.reports-container {
+  display: flex;
+  height: 100vh;
+  background: radial-gradient(circle at 10% 20%, rgba(18, 30, 56, 1) 0%, rgba(12, 17, 30, 1) 90%);
+  color: #f8fafc;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.reports-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Header styling */
+.reports-header {
+  padding: 1.25rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(12, 17, 30, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.reports-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.reports-header-left h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.reports-header-sub {
+  font-size: 0.85rem;
+  color: rgba(148, 163, 184, 0.7);
+  margin-top: 0.2rem;
+  display: block;
+}
+
+.reports-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Control Buttons & Dropdowns */
+.date-filter-select {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.date-filter-select:hover {
+  border-color: #00b4a6;
+  background: #334155;
+}
+
+.export-pdf-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #00b4a6 0%, #008f83 100%);
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 180, 166, 0.25);
+  transition: all 0.2s ease;
+}
+
+.export-pdf-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 180, 166, 0.35);
+}
+
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.user-pill img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Page Layout Content Area */
+.reports-content {
+  padding: 2rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* KPI Summary Cards Grid */
+.kpi-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 1200px) {
+  .kpi-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .kpi-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpi-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.kpi-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-icon-wrapper svg {
+  width: 24px;
+  height: 24px;
+}
+
+.kpi-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-title {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.kpi-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+/* Productivity Score Card styling */
+.productivity-card {
+  grid-column: span 1;
+}
+
+.productivity-score-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.score-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  display: inline-block;
+  margin-top: 0.25rem;
+  width: fit-content;
+}
+
+.score-green {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.score-yellow {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.score-red {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Tooltip info trigger */
+.info-icon {
+  margin-left: 0.25rem;
+  cursor: help;
+  color: #64748b;
+  transition: color 0.2s;
+}
+
+.info-icon:hover {
+  color: #cbd5e1;
+}
+
+/* Charts Panel Grid (2x2) */
+.charts-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 1024px) {
+  .charts-layout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  height: 330px;
+}
+
+.chart-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.chart-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.chart-container {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* Chart Empty State Overlays */
+.chart-empty-state {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  gap: 0.5rem;
+  text-align: center;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 8px;
+  min-height: 200px;
+}
+
+.chart-empty-icon {
+  font-size: 2.25rem;
+  opacity: 0.6;
+}
+
+.chart-empty-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Project Progress Table styling */
+.project-table-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.project-table-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 1.25rem;
+}
+
+.table-responsive-wrapper {
+  overflow-x: auto;
+}
+
+.project-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.project-data-table th {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.project-data-table th:hover {
+  color: #00b4a6;
+}
+
+.project-data-table td {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  vertical-align: middle;
+}
+
+.project-data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.project-data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Priority tags */
+.prio-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  display: inline-block;
+}
+
+.prio-high {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.prio-medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.prio-low {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+/* Status dots */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Progress bar inside table cell */
+.progress-bar-cell-wrapper {
+  width: 140px;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.progress-bg {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00b4a6 0%, #6366f1 100%);
+  border-radius: 9999px;
+  transition: width 0.4s ease;
+}
+
+/* Sorting arrow icons */
+.sort-indicator {
+  margin-left: 0.35rem;
+  font-size: 0.75rem;
+}
+
+/* ── HIGH FIDELITY PRINT STYLESHEET ── */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    font-size: 11pt !important;
+  }
+  
+  .reports-container {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* Hide sidebar and headers from print preview completely */
+  .sidebar,
+  .reports-header-right,
+  .menu-toggle,
+  .date-filter-select,
+  .export-pdf-btn,
+  .user-pill {
+    display: none !important;
+  }
+
+  .reports-main {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .reports-header {
+    background: #ffffff !important;
+    border-bottom: 2px solid #0f172a !important;
+    padding: 1rem 0 !important;
+  }
+
+  /* Injected Report Print Header */
+  .print-only-header {
+    display: block !important;
+    text-align: center;
+    border-bottom: 2px solid #334155;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .print-only-header h1 {
+    font-size: 24pt;
+    margin: 0;
+    color: #0c111e;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .print-only-header p {
+    font-size: 10pt;
+    color: #64748b;
+    margin: 5px 0 0 0;
+  }
+
+  .reports-content {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Layout grid printing */
+  .kpi-cards-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 2rem !important;
+  }
+
+  .kpi-card {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    color: #1e293b !important;
+    box-shadow: none !important;
+    transform: none !important;
+    padding: 10px !important;
+  }
+
+  .kpi-title {
+    color: #64748b !important;
+  }
+
+  .kpi-value {
+    color: #0f172a !important;
+    font-size: 1.5rem !important;
+  }
+
+  .score-badge {
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .score-green { color: #15803d !important; }
+  .score-yellow { color: #b45309 !important; }
+  .score-red { color: #b91c1c !important; }
+
+  .charts-layout-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 20px !important;
+    margin-bottom: 2rem !important;
+    page-break-inside: avoid !important;
+  }
+
+  .chart-card {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    color: #1e293b !important;
+    page-break-inside: avoid !important;
+    height: 320px !important;
+  }
+
+  .chart-title {
+    color: #0f172a !important;
+  }
+
+  /* Force page break before the Projects Progress Table to look gorgeous and not cut elements */
+  .project-table-card {
+    page-break-before: always !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+    margin-top: 2rem !important;
+    box-shadow: none !important;
+  }
+
+  .project-table-title {
+    color: #0f172a !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  .project-data-table th {
+    color: #0f172a !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+  }
+
+  .project-data-table td {
+    color: #1e293b !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+  }
+
+  .progress-bg {
+    background: #e2e8f0 !important;
+  }
+
+  .progress-fill {
+    background: #00b4a6 !important;
+  }
+}
+
+/* Initially hide print elements in browser mode */
+.print-only-header {
+  display: none;
+}

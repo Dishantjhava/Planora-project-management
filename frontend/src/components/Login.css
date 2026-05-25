@@ -118,15 +118,15 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 3rem;
-  padding: 2rem 3rem;
+  gap: 1.5rem;
+  padding: 2rem 2.5rem;
   position: relative;
   z-index: 2;
 }
 
 .cu-hero-content {
-  flex: 1;
-  max-width: 460px;
+  flex: 1.4;
+  max-width: 520px;
 }
 
 .cu-eyebrow {
@@ -154,7 +154,7 @@
 
 .cu-title {
   font-family: 'Syne', sans-serif;
-  font-size: clamp(2rem, 3.2vw, 2.9rem);
+  font-size: clamp(1.5rem, 2vw, 2.1rem);
   font-weight: 800;
   color: #0f172a;
   line-height: 1.12;
@@ -177,44 +177,46 @@
   margin-bottom: 2rem;
 }
 
-.cu-feature-pill {
+/* ── Feature Pills Row ── */
+.cu-pills-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cu-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
   background: white;
   border: 1px solid rgba(20, 184, 166, 0.2);
   border-radius: 50px;
-  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.1);
+  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.08);
   color: #0f172a;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  position: relative;
+  white-space: nowrap;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.cu-feature-pill::after {
-  content: '';
-  position: absolute;
-  right: -40px;
-  top: 50%;
-  width: 30px;
-  height: 2px;
-  background: linear-gradient(90deg, rgba(20, 184, 166, 0.5), transparent);
+.cu-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.15);
 }
 
-.cu-fp-icon { font-size: 1.1rem; }
+.cu-pill-icon { font-size: 0.9rem; }
 
 
-
-/* ── App Preview (Mock Dashboard) ── */
+/* ── App Preview (Desktop Dashboard Mockup) ── */
 .cu-app-preview {
-  flex: 1.2;
+  flex: 0.85;
   width: 100%;
-  max-width: 450px;
+  max-width: 400px;
   background: #0f172a;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15), 0 0 0 8px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2), 0 0 0 6px rgba(15, 23, 42, 0.04);
   overflow: hidden;
   animation: floatApp 8s ease-in-out infinite;
 }
@@ -226,101 +228,189 @@
 
 .cu-preview-header {
   background: #1e293b;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1rem;
   display: flex;
   align-items: center;
+  gap: 0.6rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .cu-ph-dots {
   display: flex;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .cu-ph-dots span {
-  width: 10px; height: 10px; border-radius: 50%;
+  width: 9px; height: 9px; border-radius: 50%;
 }
 .cu-ph-dots .r { background: #ef4444; }
 .cu-ph-dots .y { background: #f59e0b; }
 .cu-ph-dots .g { background: #10b981; }
 
 .cu-ph-title {
-  margin-left: 1rem;
+  flex: 1;
   background: rgba(15, 23, 42, 0.5);
-  padding: 0.2rem 1rem;
+  padding: 0.18rem 0.75rem;
   border-radius: 4px;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.35);
   font-family: monospace;
+  text-align: center;
 }
 
-.cu-preview-body {
-  padding: 1.5rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.cu-ph-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
 }
 
-.cu-p-stat {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1rem;
+.cu-ph-btn {
+  width: 22px;
+  height: 14px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+}
+
+/* ── Desktop dashboard inner layout ── */
+.cu-preview-desktop {
+  display: flex;
+  height: 220px;
+}
+
+/* Sidebar */
+.cu-desk-sidebar {
+  width: 90px;
+  background: #0d1526;
+  border-right: 1px solid rgba(255,255,255,0.05);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  padding: 0.75rem 0;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
-.cu-p-icon {
-  width: 32px; height: 32px;
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1rem;
-}
-
-.cu-p-info { display: flex; flex-direction: column; }
-.cu-p-val { font-size: 1.5rem; font-weight: 700; color: white; font-family: 'Syne', sans-serif; line-height: 1; margin-bottom: 0.25rem; }
-.cu-p-lbl { font-size: 0.75rem; color: #94a3b8; }
-.cu-p-trend { font-size: 0.7rem; font-weight: 600; margin-top: auto; }
-
-.cu-p-progress {
-  grid-column: 1 / -1;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1.25rem;
+.cu-ds-logo {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #14b8a6, #0891b2);
+  border-radius: 7px;
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-}
-
-.cu-p-ring-box {
-  width: 70px; height: 70px;
-  position: relative;
-  display: flex; align-items: center; justify-content: center;
-}
-.cu-p-ring-box svg { width: 100%; height: 100%; position: absolute; }
-.cu-p-ring-box span { color: white; font-weight: 700; font-size: 0.9rem; z-index: 1; }
-
-.cu-p-tasks {
-  flex: 1; display: flex; flex-direction: column; gap: 0.5rem;
-}
-
-.cu-p-task {
-  background: rgba(15, 23, 42, 0.4);
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
   font-size: 0.8rem;
-  color: #e2e8f0;
+  margin: 0 auto 0.5rem;
+}
+
+.cu-ds-nav {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 0.4rem;
+}
+
+.cu-ds-item {
+  font-size: 0.6rem;
+  color: rgba(148,163,184,0.55);
+  padding: 0.35rem 0.5rem;
+  border-radius: 5px;
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s;
+}
+
+.cu-ds-item.active {
+  background: rgba(20,184,166,0.12);
+  color: #14b8a6;
+}
+
+/* Main area */
+.cu-desk-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  gap: 0.65rem;
+  overflow: hidden;
+}
+
+/* Stats row */
+.cu-desk-stats {
+  display: flex;
   gap: 0.5rem;
 }
 
-.cu-t-dot { width: 8px; height: 8px; border-radius: 50%; }
+.cu-desk-stat {
+  flex: 1;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cu-ds-val {
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  font-family: 'Syne', sans-serif;
+  line-height: 1;
+}
+
+.cu-ds-lbl {
+  font-size: 0.55rem;
+  color: #64748b;
+}
+
+/* Task list */
+.cu-desk-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.cu-desk-task {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 6px;
+  padding: 0.38rem 0.6rem;
+}
+
+.cu-dtask-name {
+  flex: 1;
+  font-size: 0.62rem;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cu-dtask-tag {
+  font-size: 0.52rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cu-dtask-tag.design { background: rgba(99,102,241,0.15); color: #818cf8; }
+.cu-dtask-tag.dev    { background: rgba(59,130,246,0.15);  color: #60a5fa; }
+.cu-dtask-tag.review { background: rgba(245,158,11,0.15);  color: #fbbf24; }
+
+.cu-t-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .cu-t-dot.done { background: #10b981; }
 .cu-t-dot.prog { background: #3b82f6; }
-.cu-t-dot.rev { background: #f59e0b; }
+.cu-t-dot.rev  { background: #f59e0b; }
 
 /* ═══════════════════════════════════════════
    RIGHT PANEL — dark login form side

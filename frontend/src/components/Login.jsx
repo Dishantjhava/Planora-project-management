@@ -4,8 +4,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import './Login.css';
-import { loginUser } from '../services/api.js';
+import { loginUser, googleLoginUser } from '../services/api.js';
 import { useAuth } from '../context/AuthContext';
+import { useGoogleLogin } from '@react-oauth/google';
 
 import LogoIcon from './icons/LogoIcon';
 import AlertIcon from './icons/AlertIcon';
@@ -15,7 +16,6 @@ import CheckIcon from './icons/CheckIcon';
 import EyeIcon from './icons/EyeIcon';
 import EyeOffIcon from './icons/EyeOffIcon';
 import GoogleIcon from './icons/GoogleIcon';
-import GithubIcon from './icons/GithubIcon';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 
@@ -33,6 +33,7 @@ const Login = () => {
   const [generalError, setGeneralError]   = useState('');
   const [isLoading, setIsLoading]         = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm({
     resolver: zodResolver(loginSchema),
@@ -86,6 +87,29 @@ const Login = () => {
     }
   };
 
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setGoogleLoading(true);
+      setGeneralError('');
+      try {
+        const result = await googleLoginUser(tokenResponse.access_token);
+        if (result && result.success) {
+          login(result.user, result.token, result.refreshToken);
+          navigate('/home');
+        } else {
+          setGeneralError(result?.message || 'Google sign-in failed. Please try again.');
+        }
+      } catch (err) {
+        setGeneralError('Google sign-in failed. Make sure the backend is running.');
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    onError: () => {
+      setGeneralError('Google sign-in was cancelled or failed.');
+    },
+  });
+
   return (
     <div className="cu-page">
       {/* ── LEFT PANEL ── */}
@@ -115,46 +139,77 @@ const Login = () => {
             <p className="cu-subtitle">
               Bring projects, tasks, and teams together in one place that keeps everyone aligned automatically.
             </p>
-            <div className="cu-feature-pill">
-              <span className="cu-fp-icon">✨</span>
-              <span>Syncs in real-time</span>
-              <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
-                 <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+            <div className="cu-pills-row">
+              <div className="cu-pill">
+                <span className="cu-pill-icon">✨</span>
+                <span>Real-time sync</span>
+              </div>
+              <div className="cu-pill">
+                <span className="cu-pill-icon">✓</span>
+                <span>Team sync</span>
+              </div>
+              <div className="cu-pill">
+                <span className="cu-pill-icon">📊</span>
+                <span>Analytics</span>
+              </div>
             </div>
           </div>
           <div className="cu-app-preview">
+            {/* Browser chrome */}
             <div className="cu-preview-header">
               <div className="cu-ph-dots"><span className="r"></span><span className="y"></span><span className="g"></span></div>
               <div className="cu-ph-title">planora.app/dashboard</div>
+              <div className="cu-ph-actions">
+                <div className="cu-ph-btn"></div>
+                <div className="cu-ph-btn"></div>
+              </div>
             </div>
-            <div className="cu-preview-body">
-              <div className="cu-p-stat">
-                <div className="cu-p-icon" style={{color: '#6366f1', background: 'rgba(99,102,241,0.1)'}}>📊</div>
-                <div className="cu-p-info">
-                  <span className="cu-p-val">12</span>
-                  <span className="cu-p-lbl">Active Projects</span>
+            {/* Desktop dashboard layout: sidebar + main */}
+            <div className="cu-preview-desktop">
+              {/* Sidebar */}
+              <div className="cu-desk-sidebar">
+                <div className="cu-ds-logo">P</div>
+                <div className="cu-ds-nav">
+                  <div className="cu-ds-item active">📋 Projects</div>
+                  <div className="cu-ds-item">✅ Tasks</div>
+                  <div className="cu-ds-item">💬 Chat</div>
+                  <div className="cu-ds-item">📈 Reports</div>
                 </div>
               </div>
-              <div className="cu-p-stat">
-                <div className="cu-p-icon" style={{color: '#10b981', background: 'rgba(16,185,129,0.1)'}}>✓</div>
-                <div className="cu-p-info">
-                  <span className="cu-p-val">48</span>
-                  <span className="cu-p-lbl">Completed Tasks</span>
+              {/* Main content */}
+              <div className="cu-desk-main">
+                {/* Stats row */}
+                <div className="cu-desk-stats">
+                  <div className="cu-desk-stat">
+                    <span className="cu-ds-val">12</span>
+                    <span className="cu-ds-lbl">Projects</span>
+                  </div>
+                  <div className="cu-desk-stat">
+                    <span className="cu-ds-val">48</span>
+                    <span className="cu-ds-lbl">Tasks Done</span>
+                  </div>
+                  <div className="cu-desk-stat">
+                    <span className="cu-ds-val">75%</span>
+                    <span className="cu-ds-lbl">On Track</span>
+                  </div>
                 </div>
-              </div>
-              <div className="cu-p-progress">
-                <div className="cu-p-ring-box">
-                  <svg viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="9"/>
-                    <circle cx="50" cy="50" r="42" fill="none" stroke="#14b8a6" strokeWidth="9" strokeDasharray="197 263.8" strokeLinecap="round" transform="rotate(-90 50 50)"/>
-                  </svg>
-                  <span>75%</span>
-                </div>
-                <div className="cu-p-tasks">
-                  <div className="cu-p-task"><span className="cu-t-dot done"></span> Homepage Redesign</div>
-                  <div className="cu-p-task"><span className="cu-t-dot prog"></span> API Integration</div>
-                  <div className="cu-p-task"><span className="cu-t-dot rev"></span> Security Audit</div>
+                {/* Task list */}
+                <div className="cu-desk-tasks">
+                  <div className="cu-desk-task">
+                    <span className="cu-t-dot done"></span>
+                    <span className="cu-dtask-name">Homepage Redesign</span>
+                    <span className="cu-dtask-tag design">Design</span>
+                  </div>
+                  <div className="cu-desk-task">
+                    <span className="cu-t-dot prog"></span>
+                    <span className="cu-dtask-name">API Integration</span>
+                    <span className="cu-dtask-tag dev">Dev</span>
+                  </div>
+                  <div className="cu-desk-task">
+                    <span className="cu-t-dot rev"></span>
+                    <span className="cu-dtask-name">Security Audit</span>
+                    <span className="cu-dtask-tag review">Review</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -253,11 +308,17 @@ const Login = () => {
             </button>
             <div className="cu-divider"><span>OR</span></div>
             <div className="cu-socials">
-              <button type="button" className="cu-social google" disabled={isLoading}>
-                <GoogleIcon /> Continue with Google
-              </button>
-              <button type="button" className="cu-social github" disabled={isLoading}>
-                <GithubIcon /> Continue with GitHub
+              <button
+                type="button"
+                className="cu-social google"
+                disabled={isLoading || googleLoading}
+                onClick={() => handleGoogleLogin()}
+              >
+                {googleLoading ? (
+                  <><span className="cu-spinner"></span>Signing in with Google...</>
+                ) : (
+                  <><GoogleIcon /> Continue with Google</>
+                )}
               </button>
             </div>
             <div className="cu-link">

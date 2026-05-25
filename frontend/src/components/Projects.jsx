@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Projects.css';
 import { createProject, updateProject, deleteProject, createTask, deleteTask, updateTask } from '../services/api.js';
@@ -12,9 +12,10 @@ import { SortableTaskItem } from './SortableTaskItem';
 const TASK_CATEGORIES = ['Design','Development','Testing','Research','Documentation','Review','Deployment','Planning'];
 
 const Projects = () => {
-  const { logout } = useAuth();
-  const { projects, setProjects, tasks, setTasks, teamMembers, loading, projectsPagination, fetchMoreProjects } = useData();
+  const { logout, user } = useAuth();
+  const { projects, setProjects, tasks, setTasks, teamMembers, loading, projectsPagination, fetchMoreProjects, notifications = [] } = useData();
   const navigate = useNavigate();
+  const unreadCount = notifications.filter(n => !n.read).length;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast]             = useState({ show: false, message: '', type: '' });
 
@@ -107,9 +108,6 @@ const Projects = () => {
   const validateProject = () => {
     const e = {};
     if (!projectForm.name.trim()) e.name = 'Name is required';
-    if (!projectForm.deadline)    e.deadline = 'Deadline is required';
-    if (!projectForm.team || projectForm.team < 1) e.team = 'Team size ≥ 1';
-    if (!projectForm.tasks || projectForm.tasks < 1) e.tasks = 'Tasks must be ≥ 1';
     setProjectErrors(e);
     return !Object.keys(e).length;
   };
@@ -165,7 +163,8 @@ const Projects = () => {
   // ── Task CRUD ─────────────────────────────────────────────────────
   const openAddTask = (projectId = '', e) => {
     e?.stopPropagation();
-    setTaskForm({ ...emptyTaskForm, projectId: projectId || (projects[0]?.id || '') });
+    const defaultPid = projectId || selectedProject?.id || projects[0]?.id || '';
+    setTaskForm({ ...emptyTaskForm, projectId: defaultPid });
     setTaskErrors({});
     setShowTaskModal(true);
   };
@@ -257,7 +256,7 @@ const Projects = () => {
   // ── CSV Export ────────────────────────────────────────────────────
   const exportCSV = () => {
     const headers = ['ID','Name','Status','Priority','Progress','Team','Tasks','Completed','Deadline'];
-    const rows = projects.map(p => [p.id,p.name,p.status,p.priority,`${p.progress}%`,p.team,p.tasks,p.completedTasks,p.deadline]);
+    const rows = projectsWithStats.map(p => [p.id,p.name,p.status,p.priority,`${p.progress}%`,p.team,p.tasks,p.completedTasks,p.deadline]);
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(new Blob([csv],{type:'text/csv'})),
@@ -267,7 +266,26 @@ const Projects = () => {
   };
 
   // ── Derived ───────────────────────────────────────────────────────
-  const filtered = [...projects]
+  const projectsWithStats = useMemo(() => {
+    return projects.map(p => {
+      const pTasks = tasks.filter(t => toStr(t.projectId) === toStr(p.id));
+      const completed = pTasks.filter(t => t.status === 'done').length;
+      const progress = pTasks.length > 0 ? Math.round((completed / pTasks.length) * 100) : 0;
+      return {
+        ...p,
+        tasks: pTasks.length,
+        completedTasks: completed,
+        progress,
+        team: p.members?.length || 0
+      };
+    });
+  }, [projects, tasks]);
+
+  const activeSelectedProject = selectedProject
+    ? projectsWithStats.find(p => toStr(p.id) === toStr(selectedProject.id))
+    : null;
+
+  const filtered = [...projectsWithStats]
     .sort((a,b) => {
       if (sortBy === 'name')     return a.name.localeCompare(b.name);
       if (sortBy === 'deadline') return new Date(a.deadline||a.dueDate) - new Date(b.deadline||b.dueDate);
@@ -331,13 +349,26 @@ const Projects = () => {
             <svg viewBox="0 0 24 24" fill="none"><path d="M17 21V19C17 17.93 16.58 16.92 15.83 16.17C15.08 15.42 14.06 15 13 15H5C3.93 15 2.92 15.42 2.17 16.17C1.42 16.92 1 17.93 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/></svg>
             {sidebarOpen && <span>Team</span>}
           </a>
-          <a href="#" className="nav-item">
+          <a href="#" className="nav-item" onClick={e=>{e.preventDefault();navigate('/calendar')}}>
             <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             {sidebarOpen && <span>Calendar</span>}
           </a>
+          <a href="#" className="nav-item" onClick={e => { e.preventDefault(); navigate('/reports'); }}>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            {sidebarOpen && <span>Reports</span>}
+          </a>
+          <a href="#" className="nav-item" onClick={e => { e.preventDefault(); navigate('/notifications'); }}>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M18 8C18 6.41 17.37 4.88 16.24 3.76C15.12 2.63 13.59 2 12 2C10.41 2 8.88 2.63 7.76 3.76C6.63 4.88 6 6.41 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M13.73 21C13.55 21.3 13.3 21.55 12.99 21.73C12.69 21.9 12.35 22 12 22C11.65 22 11.31 21.9 11.01 21.73C10.7 21.55 10.45 21.3 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            {sidebarOpen && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>Notifications</span>
+                {unreadCount > 0 && <span className="sidebar-notif-badge" style={{ background: '#00b4a6', color: '#0f172a', padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold' }}>{unreadCount}</span>}
+              </div>
+            )}
+          </a>
         </nav>
         <div className="sidebar-footer">
-          <a href="#" className="nav-item">
+          <a href="#" className="nav-item" onClick={e => { e.preventDefault(); navigate('/settings'); }}>
             <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/><path d="M19.4 15A7.5 7.5 0 1 1 12 7.5" stroke="currentColor" strokeWidth="2"/></svg>
             {sidebarOpen && <span>Settings</span>}
           </a>
@@ -355,7 +386,10 @@ const Projects = () => {
             </button>
             <div>
               <h2>Projects</h2>
-              <span className="proj-header-sub">{projects.length} total · {filtered.length} shown</span>
+              {projects.length > 0
+                ? <span className="proj-header-sub">{projects.length} total · {filtered.length} shown</span>
+                : <span className="proj-header-sub">Get started by creating your first project</span>
+              }
             </div>
           </div>
           <div className="proj-header-right">
@@ -372,8 +406,12 @@ const Projects = () => {
               <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
               New Project
             </button>
+            <button className="icon-button" title="Notifications" onClick={() => navigate('/notifications')} style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem', borderRadius: '50%', marginRight: '0.5rem', position: 'relative' }}>
+              <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8C18 6.41 17.37 4.88 16.24 3.76C15.12 2.63 13.59 2 12 2C10.41 2 8.88 2.63 7.76 3.76C6.63 4.88 6 6.41 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z"/><path d="M13.73 21C13.55 21.3 13.3 21.55 12.99 21.73C12.69 21.9 12.35 22 12 22C11.65 22 11.31 21.9 11.01 21.73C10.7 21.55 10.45 21.3 10.27 21"/></svg>
+              {unreadCount > 0 && <span className="notification-badge" style={{ position: 'absolute', top: '-2px', right: '-2px', background: '#ef4444', color: '#fff', fontSize: '9px', fontWeight: 'bold', borderRadius: '50%', width: '15px', height: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unreadCount}</span>}
+            </button>
             <div className="user-pill" onClick={logout} title="Logout">
-              <img src="https://ui-avatars.com/api/?name=Admin+User&background=14b8a6&color=fff" alt="User"/>
+              <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=14b8a6&color=fff`} alt="User"/>
               <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M9 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H9" stroke="currentColor" strokeWidth="2"/><path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2"/><path d="M21 12H9" stroke="currentColor" strokeWidth="2"/></svg>
             </div>
           </div>
@@ -382,31 +420,40 @@ const Projects = () => {
         {/* Content */}
         <div className="proj-content">
 
-          {/* Toolbar */}
+          {/* Toolbar — only show meaningful controls when projects exist */}
           <div className="proj-toolbar">
             <div className="proj-filters">
-              {filters.map(f => (
+              {projects.length > 0 && filters.map(f => (
                 <button key={f.key} className={`proj-filter-tab ${activeFilter===f.key?'active':''}`} onClick={() => setActiveFilter(f.key)}>
                   {f.label}
                 </button>
               ))}
             </div>
             <div className="proj-toolbar-right">
-              <select className="proj-sort" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                <option value="name">Name</option>
-                <option value="deadline">Deadline</option>
-                <option value="progress">Progress</option>
-                <option value="priority">Priority</option>
-              </select>
-              <div className="view-toggle">
-                <button className={`view-btn ${viewMode==='grid'?'active':''}`} onClick={() => setViewMode('grid')}>
-                  <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="3" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="14" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="14" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="3" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                </button>
-                <button className={`view-btn ${viewMode==='list'?'active':''}`} onClick={() => setViewMode('list')}>
-                  <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="3" y1="6" x2="3.01" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="3" y1="12" x2="3.01" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="3" y1="18" x2="3.01" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                </button>
-              </div>
-              <button className="proj-export-btn" onClick={exportCSV}>
+              {projects.length > 0 && (
+                <select className="proj-sort" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                  <option value="name">Name</option>
+                  <option value="deadline">Deadline</option>
+                  <option value="progress">Progress</option>
+                  <option value="priority">Priority</option>
+                </select>
+              )}
+              {projects.length > 0 && (
+                <div className="view-toggle">
+                  <button className={`view-btn ${viewMode==='grid'?'active':''}`} onClick={() => setViewMode('grid')}>
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="3" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="14" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="14" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="3" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  </button>
+                  <button className={`view-btn ${viewMode==='list'?'active':''}`} onClick={() => setViewMode('list')}>
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="3" y1="6" x2="3.01" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="3" y1="12" x2="3.01" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="3" y1="18" x2="3.01" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  </button>
+                </div>
+              )}
+              <button
+                className="proj-export-btn"
+                onClick={exportCSV}
+                disabled={projects.length === 0}
+                title={projects.length === 0 ? 'No projects to export' : 'Export as CSV'}
+              >
                 <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M21 15V19C21 19.53 20.79 20.04 20.41 20.41C20.04 20.79 19.53 21 19 21H5C4.47 21 3.96 20.79 3.59 20.41C3.21 20.04 3 19.53 3 19V15" stroke="currentColor" strokeWidth="2"/><path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2"/><path d="M12 15V3" stroke="currentColor" strokeWidth="2"/></svg>
                 Export
               </button>
@@ -418,10 +465,20 @@ const Projects = () => {
             <SkeletonDashboard />
           ) : filtered.length === 0 ? (
             <div className="proj-empty">
-              <div className="proj-empty-icon">🔍</div>
-              <h3>No projects found</h3>
-              <p>Try a different search or filter, or create a new project.</p>
-              <button className="proj-btn-primary" onClick={openAddProject}>+ New Project</button>
+              {(!searchQuery && activeFilter === 'all') ? (
+                <>
+                  <div className="proj-empty-icon">📁</div>
+                  <h3>No projects yet</h3>
+                  <p>Create your first project to get started.</p>
+                  <button className="proj-btn-primary" onClick={openAddProject}>+ Create Project</button>
+                </>
+              ) : (
+                <>
+                  <div className="proj-empty-icon">🔍</div>
+                  <h3>No projects found</h3>
+                  <p>Try a different search or filter.</p>
+                </>
+              )}
             </div>
           ) : (
             <div className={viewMode === 'grid' ? 'proj-grid' : 'proj-list'}>
@@ -551,24 +608,24 @@ const Projects = () => {
       </div>
 
       {/* ═══ PROJECT DETAIL MODAL ═══ */}
-      {selectedProject && (
+      {activeSelectedProject && (
         <div className="proj-overlay" onClick={() => setSelectedProject(null)}>
           <div className="proj-detail-modal" onClick={e => e.stopPropagation()}>
-            <div className="proj-detail-accent" style={{ background: statusColor[selectedProject.status] || '#6366f1' }}></div>
+            <div className="proj-detail-accent" style={{ background: statusColor[activeSelectedProject.status] || '#6366f1' }}></div>
             <div className="proj-detail-header">
               <div>
-                <h2>{selectedProject.name}</h2>
-                <p>{selectedProject.description}</p>
+                <h2>{activeSelectedProject.name}</h2>
+                <p>{activeSelectedProject.description}</p>
               </div>
               <button className="proj-modal-close" onClick={() => setSelectedProject(null)}>✕</button>
             </div>
             <div className="proj-detail-body">
               <div className="proj-detail-grid">
                 {[
-                  { label:'Status',   value: <span className={`proj-status-badge status-${selectedProject.status.toLowerCase().replace(/\s+/g,'-')}`}>{selectedProject.status}</span> },
-                  { label:'Priority', value: <span style={{color:priorityColor[selectedProject.priority]}}>{selectedProject.priority?.toUpperCase()}</span> },
-                  { label:'Team',     value: `${selectedProject.team} members` },
-                  { label:'Deadline', value: selectedProject.deadline ? new Date(selectedProject.deadline).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : 'Not set' },
+                  { label:'Status',   value: <span className={`proj-status-badge status-${activeSelectedProject.status.toLowerCase().replace(/\s+/g,'-')}`}>{activeSelectedProject.status}</span> },
+                  { label:'Priority', value: <span style={{color:priorityColor[activeSelectedProject.priority]}}>{activeSelectedProject.priority?.toUpperCase()}</span> },
+                  { label:'Team',     value: `${activeSelectedProject.team} members` },
+                  { label:'Deadline', value: activeSelectedProject.deadline ? new Date(activeSelectedProject.deadline).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : 'Not set' },
                 ].map((item,i) => (
                   <div key={i} className="proj-detail-card">
                     <div className="proj-detail-label">{item.label}</div>
@@ -580,32 +637,32 @@ const Projects = () => {
               <div className="proj-detail-progress">
                 <div className="proj-progress-header" style={{marginBottom:'.6rem'}}>
                   <span className="proj-detail-label">Progress</span>
-                  <span className="proj-progress-pct">{selectedProject.progress}%</span>
+                  <span className="proj-progress-pct">{activeSelectedProject.progress}%</span>
                 </div>
                 <div className="proj-progress-bar" style={{height:'10px'}}>
                   <div className="proj-progress-fill" style={{
-                    width:`${selectedProject.progress}%`,
-                    background: selectedProject.progress>=75?'linear-gradient(90deg,#10b981,#059669)':
-                                selectedProject.progress>=50?'linear-gradient(90deg,#f59e0b,#d97706)':
+                    width:`${activeSelectedProject.progress}%`,
+                    background: activeSelectedProject.progress>=75?'linear-gradient(90deg,#10b981,#059669)':
+                                activeSelectedProject.progress>=50?'linear-gradient(90deg,#f59e0b,#d97706)':
                                 'linear-gradient(90deg,#6366f1,#4f46e5)'
                   }}></div>
                 </div>
                 <div className="proj-detail-tasks-summary">
-                  {selectedProject.completedTasks} of {selectedProject.tasks} tasks completed
+                  {activeSelectedProject.completedTasks} of {activeSelectedProject.tasks} tasks completed
                 </div>
               </div>
 
               {/* Tasks in detail */}
               <div className="proj-detail-tasks">
                 <div className="proj-tasks-header" style={{marginBottom:'.75rem',fontSize:'.9rem',fontWeight:700,color:'rgba(226,232,240,.7)',textTransform:'uppercase',letterSpacing:'.4px'}}>
-                  Tasks ({projectTasks(selectedProject.id).length})
+                  Tasks ({projectTasks(activeSelectedProject.id).length})
                 </div>
-                {projectTasks(selectedProject.id).length === 0 ? (
+                {projectTasks(activeSelectedProject.id).length === 0 ? (
                   <p className="proj-no-tasks">No tasks yet. Add one below!</p>
                 ) : (
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={projectTasks(selectedProject.id).map(t => t.id)} strategy={verticalListSortingStrategy}>
-                      {projectTasks(selectedProject.id).map(task => (
+                    <SortableContext items={projectTasks(activeSelectedProject.id).map(t => t.id)} strategy={verticalListSortingStrategy}>
+                      {projectTasks(activeSelectedProject.id).map(task => (
                         <SortableTaskItem
                           key={task.id}
                           task={task}
@@ -654,11 +711,9 @@ const Projects = () => {
               </div>
               <div className="pform-row">
                 <div className="pform-group">
-                  <label>Deadline *</label>
+                  <label>Deadline</label>
                   <input type="date" value={projectForm.deadline}
-                    onChange={e => setProjectForm({...projectForm,deadline:e.target.value})}
-                    className={projectErrors.deadline?'error':''}/>
-                  {projectErrors.deadline && <span className="perror">{projectErrors.deadline}</span>}
+                    onChange={e => setProjectForm({...projectForm,deadline:e.target.value})}/>
                 </div>
                 <div className="pform-group">
                   <label>Priority</label>
@@ -671,13 +726,6 @@ const Projects = () => {
               </div>
               <div className="pform-row">
                 <div className="pform-group">
-                  <label>Team Size *</label>
-                  <input type="number" placeholder="e.g. 5" min="1"
-                    value={projectForm.team} onChange={e => setProjectForm({...projectForm,team:e.target.value})}
-                    className={projectErrors.team?'error':''}/>
-                  {projectErrors.team && <span className="perror">{projectErrors.team}</span>}
-                </div>
-                <div className="pform-group">
                   <label>Status</label>
                   <select value={projectForm.status} onChange={e => setProjectForm({...projectForm,status:e.target.value})}>
                     <option value="planning">Planning</option>
@@ -685,20 +733,6 @@ const Projects = () => {
                     <option value="review">Review</option>
                     <option value="completed">Completed</option>
                   </select>
-                </div>
-              </div>
-              <div className="pform-row">
-                <div className="pform-group">
-                  <label>Total Tasks *</label>
-                  <input type="number" placeholder="e.g. 20" min="1"
-                    value={projectForm.tasks} onChange={e => setProjectForm({...projectForm,tasks:e.target.value})}
-                    className={projectErrors.tasks?'error':''}/>
-                  {projectErrors.tasks && <span className="perror">{projectErrors.tasks}</span>}
-                </div>
-                <div className="pform-group">
-                  <label>Completed Tasks</label>
-                  <input type="number" placeholder="0" min="0" max={projectForm.tasks||0}
-                    value={projectForm.completedTasks} onChange={e => setProjectForm({...projectForm,completedTasks:parseInt(e.target.value)||0})}/>
                 </div>
               </div>
             </div>
@@ -743,9 +777,11 @@ const Projects = () => {
                 </div>
                 <div className="pform-group">
                   <label>Category</label>
-                  <select value={taskForm.category} onChange={e => setTaskForm({...taskForm,category:e.target.value})}>
-                    {TASK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <input type="text" list="proj-task-categories" placeholder="e.g. Design"
+                    value={taskForm.category} onChange={e => setTaskForm({...taskForm,category:e.target.value})}/>
+                  <datalist id="proj-task-categories">
+                    {TASK_CATEGORIES.map(c => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
               </div>
 
@@ -755,7 +791,7 @@ const Projects = () => {
                 <div className="proj-assignee-row">
                   <div className={`proj-assignee-opt ${taskForm.assigneeId===''?'selected':''}`}
                     onClick={() => setTaskForm({...taskForm,assigneeId:''})}>
-                    <div className="proj-assignee-avatar unassigned">?</div>
+                    <div className="proj-assignee-avatar unassigned">👤</div>
                     <span>None</span>
                   </div>
                   {teamMembers.length === 0 && (
