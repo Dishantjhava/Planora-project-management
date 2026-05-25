@@ -1,4 +1,6 @@
 const Project = require('../models/Project');
+const User = require('../models/User');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all projects (where user is owner or member)
 // @route   GET /api/projects
@@ -90,6 +92,23 @@ const createProject = async (req, res) => {
     await project.populate('owner', 'name email role');
     await project.populate('members', 'name email role');
 
+    // Notify all active users of the new project
+    try {
+      const activeUsers = await User.find({});
+      for (const activeUser of activeUsers) {
+        await createNotification({
+          userId: activeUser._id,
+          type: 'project_created',
+          title: 'New Project Created',
+          message: `Project "${project.name}" was created by ${req.user.name}`,
+          actionUrl: '/projects',
+          triggeredBy: req.user._id
+        });
+      }
+    } catch (e) {
+      console.error('Failed to dispatch project creation notifications:', e.message);
+    }
+
     res.status(201).json({ success: true, project });
   } catch (err) {
     console.error('CREATE PROJECT ERROR:', err);
@@ -119,6 +138,23 @@ const updateProject = async (req, res) => {
       .populate('owner', 'name email role')
       .populate('members', 'name email role');
 
+    // Notify all active users of project update
+    try {
+      const activeUsers = await User.find({});
+      for (const activeUser of activeUsers) {
+        await createNotification({
+          userId: activeUser._id,
+          type: 'project_updated',
+          title: 'Project Updated',
+          message: `Project "${project.name}" was updated by ${req.user.name}`,
+          actionUrl: '/projects',
+          triggeredBy: req.user._id
+        });
+      }
+    } catch (e) {
+      console.error('Failed to dispatch project update notifications:', e.message);
+    }
+
     res.json({ success: true, project });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -141,6 +177,24 @@ const deleteProject = async (req, res) => {
     }
 
     await project.deleteOne();
+
+    // Notify all active users of project deletion
+    try {
+      const activeUsers = await User.find({});
+      for (const activeUser of activeUsers) {
+        await createNotification({
+          userId: activeUser._id,
+          type: 'project_deleted',
+          title: 'Project Deleted',
+          message: `Project "${project.name}" was deleted by ${req.user.name}`,
+          actionUrl: '/projects',
+          triggeredBy: req.user._id
+        });
+      }
+    } catch (e) {
+      console.error('Failed to dispatch project deletion notifications:', e.message);
+    }
+
     res.json({ success: true, message: 'Project deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

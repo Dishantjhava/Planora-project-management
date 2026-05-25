@@ -1,5 +1,6 @@
 const TeamMember = require('../models/TeamMember');
 const User = require('../models/User');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all team members
 // @route   GET /api/team
@@ -64,14 +65,35 @@ const updateTeamMember = async (req, res) => {
 // @access  Private
 const removeTeamMember = async (req, res) => {
   try {
-    const member = await TeamMember.findById(req.params.id);
+    const member = await TeamMember.findById(req.params.id).populate('user');
 
     if (!member) {
       return res.status(404).json({ success: false, message: 'Team member not found' });
     }
 
+    const userName = member.user?.name || 'A team member';
+
     await User.findByIdAndDelete(member.user);
     await member.deleteOne();
+
+    // Dispatch notifications to all other active users
+    try {
+      const activeUsers = await User.find({});
+      for (const activeUser of activeUsers) {
+        if (activeUser._id.toString() !== member.user?.toString()) {
+          await createNotification({
+            userId: activeUser._id,
+            type: 'member_removed',
+            title: 'Team Member Removed',
+            message: `${userName} was removed from the team`,
+            actionUrl: '/team',
+            triggeredBy: req.user._id
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Failed to dispatch member removal notifications:', e.message);
+    }
 
     res.json({ success: true, message: 'Team member removed successfully' });
   } catch (err) {

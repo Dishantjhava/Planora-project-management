@@ -11,6 +11,13 @@ module.exports = {
         credentials: true
       }
     });
+
+    io.on('connection', (socket) => {
+      socket.on('join', (userId) => {
+        socket.join(userId.toString());
+      });
+    });
+
     return io;
   },
   getIO: () => {

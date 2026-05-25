@@ -2,6 +2,7 @@ const Task = require('../models/Task');
 const Project = require('../models/Project');
 const Notification = require('../models/Notification');
 const socket = require('../socket');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all tasks (optionally filter by project)
 // @route   GET /api/tasks?project=projectId
@@ -100,22 +101,19 @@ const createTask = async (req, res) => {
     await task.populate('createdBy', 'name email');
 
     // Emit event
-    // Create notification if assigned to someone else
-    if (assignedTo && assignedTo.toString() !== req.user._id.toString()) {
-      const notification = await Notification.create({
-        recipient: assignedTo,
-        sender: req.user._id,
-        type: 'assignment',
-        message: `assigned you to a new task: "${task.title}"`,
-        relatedTask: task._id,
-      });
-      await notification.populate('sender', 'name');
-      await notification.populate('relatedTask', 'title');
-
+    // Create notification if assigned
+    if (assignedTo) {
       try {
-        socket.getIO().emit(`new_notification_${assignedTo}`, notification);
+        await createNotification({
+          userId: assignedTo,
+          type: 'task_created',
+          title: 'New Task Assigned',
+          message: `You have been assigned to the task: "${task.title}"`,
+          actionUrl: '/dashboard',
+          triggeredBy: req.user._id
+        });
       } catch (e) {
-        console.error('Socket emission failed', e);
+        console.error('Failed to dispatch task assignment notification:', e.message);
       }
     }
 
@@ -144,25 +142,49 @@ const updateTask = async (req, res) => {
       .populate('assignedTo', 'name email role')
       .populate('createdBy', 'name email');
 
-    // Emit event
-    // Create notification if assigned to someone else AND it changed
-    if (req.body.assignedTo && req.body.assignedTo.toString() !== req.user._id.toString()) {
-      // We could check if it actually changed, but for simplicity we will notify if it's assigned to someone else.
-      const notification = await Notification.create({
-        recipient: req.body.assignedTo,
-        sender: req.user._id,
-        type: 'assignment',
-        message: `updated a task assigned to you: "${task.title}"`,
-        relatedTask: task._id,
-      });
-      await notification.populate('sender', 'name');
-      await notification.populate('relatedTask', 'title');
+    // Dispatch task completion or task update notifications
+    try {
+      const isCompleted = req.body.status?.toLowerCase() === 'completed' || req.body.status?.toLowerCase() === 'done';
+      const wasCompleted = task.status?.toLowerCase() === 'completed' || task.status?.toLowerCase() === 'done';
 
-      try {
-        socket.getIO().emit(`new_notification_${req.body.assignedTo}`, notification);
-      } catch (e) {
-        console.error('Socket emission failed', e);
+      if (isCompleted && !wasCompleted) {
+        // Notify task creator if not the one who completed it
+        if (task.createdBy.toString() !== req.user._id.toString()) {
+          await createNotification({
+            userId: task.createdBy,
+            type: 'task_completed',
+            title: 'Task Completed',
+            message: `Task "${task.title}" was completed by ${req.user.name}`,
+            actionUrl: '/dashboard',
+            triggeredBy: req.user._id
+          });
+        }
+        // Notify assignee if not the one who completed it and not the creator
+        if (task.assignedTo && task.assignedTo.toString() !== req.user._id.toString() && task.assignedTo.toString() !== task.createdBy.toString()) {
+          await createNotification({
+            userId: task.assignedTo,
+            type: 'task_completed',
+            title: 'Task Completed',
+            message: `Task "${task.title}" was completed by ${req.user.name}`,
+            actionUrl: '/dashboard',
+            triggeredBy: req.user._id
+          });
+        }
+      } else {
+        // Notify assignee of task update
+        if (task.assignedTo && task.assignedTo.toString() !== req.user._id.toString()) {
+          await createNotification({
+            userId: task.assignedTo,
+            type: 'task_updated',
+            title: 'Task Updated',
+            message: `Task "${task.title}" was updated by ${req.user.name}`,
+            actionUrl: '/dashboard',
+            triggeredBy: req.user._id
+          });
+        }
       }
+    } catch (e) {
+      console.error('Failed to dispatch task update/completion notifications:', e.message);
     }
 
     res.json({ success: true, task });
@@ -187,6 +209,22 @@ const deleteTask = async (req, res) => {
     }
 
     await task.deleteOne();
+
+    // Notify assignee of task deletion
+    try {
+      if (task.assignedTo && task.assignedTo.toString() !== req.user._id.toString()) {
+        await createNotification({
+          userId: task.assignedTo,
+          type: 'task_deleted',
+          title: 'Task Deleted',
+          message: `Task "${task.title}" was deleted by ${req.user.name}`,
+          actionUrl: '/dashboard',
+          triggeredBy: req.user._id
+        });
+      }
+    } catch (e) {
+      console.error('Failed to dispatch task deletion notifications:', e.message);
+    }
 
     // Emit event
     try {
