@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check local storage on initial load
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('planora_token');
     const storedUser = localStorage.getItem('planora_user');
     
     if (token && storedUser) {
@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(true);
     setUser(userData);
     localStorage.setItem('token', token);
+    localStorage.setItem('planora_token', token); // compatibility alias
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('planora_user', JSON.stringify(userData));
   };
@@ -33,12 +34,20 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     setUser(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('planora_token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('planora_user');
   };
 
+  // Update user data in state + localStorage (used by Settings page after profile save)
+  const updateUser = (updatedUserData) => {
+    const merged = { ...user, ...updatedUserData };
+    setUser(merged);
+    localStorage.setItem('planora_user', JSON.stringify(merged));
+  };
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -51,3 +60,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

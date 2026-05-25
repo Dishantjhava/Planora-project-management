@@ -6,6 +6,11 @@ import Login from './components/Login';
 import Home from './components/Home';
 import Dashboard from './components/Dashboard';
 import Projects from './components/Projects'; 
+import Team from './components/Team';
+import Calendar from './components/Calendar';
+import Reports from './components/Reports';
+import Notifications from './components/Notifications';
+import Settings from './components/Settings';
 import Register from './components/Register';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Toaster } from 'react-hot-toast';
@@ -52,6 +57,46 @@ function App() {
           element={
             <ProtectedRoute>
               <Projects />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/team" 
+          element={
+            <ProtectedRoute>
+              <Team />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/calendar" 
+          element={
+            <ProtectedRoute>
+              <Calendar />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/reports" 
+          element={
+            <ProtectedRoute>
+              <Reports />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/notifications" 
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           } 
         />

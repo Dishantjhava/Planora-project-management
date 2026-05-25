@@ -60,6 +60,7 @@ export const DataProvider = ({ children }) => {
         members = teamRes.members.map(m => ({
           id: m._id?.toString(),
           name: m.user?.name || 'Unknown',
+          email: m.user?.email || '',
           role: m.role,
           avatar: m.user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '??',
           status: m.availability === 'Available' ? 'online' : m.availability === 'Busy' ? 'away' : 'offline',
