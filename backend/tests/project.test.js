@@ -35,7 +35,7 @@ describe('Project API Endpoints', () => {
   it('POST /api/projects should fail if required fields are missing', async () => {
     Project.create.mockRejectedValue(new Error('Validation Error'));
     const res = await request(app).post('/api/projects').send({});
-    expect(res.statusCode).toEqual(500);
+    expect(res.statusCode).toEqual(400);
     expect(res.body.success).toBe(false);
   });
 });
