@@ -12,7 +12,7 @@ const { projectValidation } = require('../middleware/validationMiddleware');
 
 router.use(protect); // All project routes require auth
 
-router.route('/').get(getProjects).post(authorize('Admin', 'Project Manager'), projectValidation, createProject);
-router.route('/:id').get(getProject).put(authorize('Admin', 'Project Manager'), projectValidation, updateProject).delete(authorize('Admin', 'Project Manager'), deleteProject);
+router.route('/').get(getProjects).post(authorize('Admin', 'Project Manager', 'Developer', 'Designer', 'QA'), projectValidation, createProject);
+router.route('/:id').get(getProject).put(authorize('Admin', 'Project Manager', 'Developer', 'Designer', 'QA'), projectValidation, updateProject).delete(authorize('Admin', 'Project Manager', 'Developer', 'Designer', 'QA'), deleteProject);
 
 module.exports = router;

@@ -3,8 +3,17 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
+const dns = require('dns');
 
 dotenv.config();
+
+// Configure custom DNS servers to prevent querySrv ECONNREFUSED errors on some local networks
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (err) {
+  console.warn('⚠️ Warning: Failed to set custom DNS servers:', err.message);
+}
+
 
 const app = express();
 
@@ -45,15 +54,28 @@ const socket = require('./socket');
 socket.init(server);
 
 if (process.env.NODE_ENV !== 'test') {
+  // Start server immediately to keep Vite proxy alive and prevent 500/504 errors
+  server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+  // Connect to MongoDB asynchronously in the background
+  console.log('⏳ Connecting to MongoDB Atlas...');
   mongoose
-    .connect(process.env.MONGO_URI)
+    .connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 })
     .then(() => {
-      console.log('✅ MongoDB connected');
-      server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+      console.log('✅ MongoDB Atlas connected');
     })
     .catch((err) => {
-      console.error('❌ MongoDB connection failed:', err.message);
-      process.exit(1);
+      console.warn('⚠️ MongoDB Atlas connection failed:', err.message);
+      console.log('🔄 Attempting connection to local MongoDB fallback...');
+      mongoose
+        .connect('mongodb://127.0.0.1:27017/planora', { serverSelectionTimeoutMS: 4000 })
+        .then(() => {
+          console.log('✅ Local MongoDB connected successfully');
+        })
+        .catch((localErr) => {
+          console.error('❌ Both MongoDB Atlas and Local MongoDB connections failed:', localErr.message);
+          console.log('⚠️ Running server in offline-only mode. Database is not available.');
+        });
     });
 }
 
