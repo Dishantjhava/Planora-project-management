@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
+import { createProject, updateProject, deleteProject, createTask, deleteTask, updateTask } from '../services/api.js';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { SkeletonDashboard } from './Skeleton';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 
 const AVATAR_COLORS = [
   '#6366f1', '#10b981', '#f59e0b', '#ec4899',
@@ -119,18 +122,20 @@ const Dashboard = () => {
   }, [projects, tasks]);
 
   // ── Toggle task status (cycles through states, updates progress) ──
-  const toggleTaskStatus = (taskId, e) => {
+  const toggleTaskStatus = async (taskId, e) => {
     e?.stopPropagation();
-    setTasks(prev => prev.map(t => {
-      if (t.id !== taskId) return t;
-      const newStatus = STATUS_CYCLE[t.status] || 'todo';
-
-      // toast on completion
+    const task = tasks.find(t => toStr(t.id) === toStr(taskId));
+    if (!task) return;
+    const newStatus = STATUS_CYCLE[task.status] || 'todo';
+    try {
+      await updateTask(toStr(task.id), { status: newStatus });
+      setTasks(prev => prev.map(t => toStr(t.id) === toStr(taskId) ? { ...t, status: newStatus } : t));
       if (newStatus === 'done') {
-        showToast(`✅ "${t.title}" marked as complete!`);
+        showToast(`✅ "${task.title}" marked as complete!`);
       }
-      return { ...t, status: newStatus };
-    }));
+    } catch (err) {
+      showToast('Failed to update task status', 'error');
+    }
   };
 
   // ── Task CRUD ─────────────────────────────────────────────────────
@@ -154,42 +159,71 @@ const Dashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSaveTask = () => {
+  const handleSaveTask = async () => {
     if (!validateTaskForm()) return;
-    const assignee = teamMembers.find(m => m.id === parseInt(taskForm.assigneeId));
-    const project  = projects.find(p => p.id === parseInt(taskForm.projectId));
-    const newTask = {
-      id:          Date.now(),
-      title:       taskForm.title.trim(),
-      description: taskForm.description.trim(),
-      projectId:   parseInt(taskForm.projectId),
-      projectName: project?.name || '',
-      assigneeId:  assignee ? parseInt(taskForm.assigneeId) : null,
-      assignee:    assignee || null,
-      priority:    taskForm.priority,
-      dueDate:     taskForm.dueDate,
-      category:    taskForm.category,
-      status:      taskForm.status,
-      createdAt:   new Date().toISOString(),
-    };
-    setTasks(prev => [newTask, ...prev]);
-    setNotifications(prev => [{
-      id:      Date.now(),
-      title:   'New task created',
-      message: `"${newTask.title}" added to ${project?.name}${assignee ? ` · Assigned to ${assignee.name}` : ''}`,
-      time:    'Just now',
-      read:    false,
-      type:    'task',
-    }, ...prev]);
-    showToast(`Task "${newTask.title}" created! ✅`);
-    setShowAddTask(false);
+    const assignee = teamMembers.find(m => toStr(m.id) === toStr(taskForm.assigneeId)) || null;
+    const project  = projects.find(p => toStr(p.id) === toStr(taskForm.projectId)) || null;
+    try {
+      const result = await createTask({
+        title:       taskForm.title.trim(),
+        description: taskForm.description.trim(),
+        project:     taskForm.projectId,
+        assignedTo:  taskForm.assigneeId || undefined,
+        priority:    taskForm.priority,
+        dueDate:     taskForm.dueDate,
+        status:      taskForm.status,
+        category:    taskForm.category,
+      });
+
+      if (result.success) {
+        const rawTask = result.task;
+        const pid = typeof rawTask.project === 'object'
+          ? rawTask.project?._id?.toString()
+          : rawTask.project?.toString();
+
+        const assigneeId = typeof rawTask.assignedTo === 'object'
+          ? rawTask.assignedTo?._id?.toString()
+          : rawTask.assignedTo?.toString();
+        const resolvedAssignee = teamMembers.find(m => toStr(m.id) === toStr(assigneeId))
+          || teamMembers.find(m => toStr(m.id) === toStr(taskForm.assigneeId))
+          || null;
+
+        const newTask = {
+          ...rawTask,
+          id:        rawTask._id?.toString(),
+          projectId: pid,
+          assignee:  resolvedAssignee,
+        };
+
+        setTasks(prev => [newTask, ...prev]);
+        setNotifications(prev => [{
+          id:      Date.now(),
+          title:   'New task created',
+          message: `"${newTask.title}" added to ${project?.name || 'Project'}${resolvedAssignee ? ` · Assigned to ${resolvedAssignee.name}` : ''}`,
+          time:    'Just now',
+          read:    false,
+          type:    'task',
+        }, ...prev]);
+        showToast(`Task "${newTask.title}" created! ✅`);
+        setShowAddTask(false);
+      } else {
+        showToast(result.message || 'Failed to create task', 'error');
+      }
+    } catch (err) {
+      showToast('Failed to create task', 'error');
+    }
   };
 
-  const handleDeleteTask = (taskId, e) => {
+  const handleDeleteTask = async (taskId, e) => {
     e?.stopPropagation();
     if (!window.confirm('Delete this task?')) return;
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    showToast('Task deleted', 'error');
+    try {
+      await deleteTask(toStr(taskId));
+      setTasks(prev => prev.filter(t => toStr(t.id) !== toStr(taskId)));
+      showToast('Task deleted', 'error');
+    } catch (err) {
+      showToast('Failed to delete task', 'error');
+    }
   };
 
   // ── Invite ────────────────────────────────────────────────────────
@@ -275,32 +309,57 @@ const Dashboard = () => {
     setShowAddProject(true);
   };
 
-  const handleSaveProject = () => {
+  const handleSaveProject = async () => {
     if (!validateForm()) return;
     const statusLabel = projectForm.status.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    if (editingProject) {
-      setProjects(prev => prev.map(p => p.id === editingProject.id
-        ? { ...p, name: projectForm.name, description: projectForm.description, deadline: projectForm.deadline,
-            priority: projectForm.priority, status: statusLabel }
-        : p));
-      showToast('Project updated successfully!');
-    } else {
-      setProjects(prev => [...prev, {
-        id: Date.now(), name: projectForm.name, description: projectForm.description,
-        deadline: projectForm.deadline, priority: projectForm.priority,
-        status: statusLabel, members: [], team: 0, tasks: 0, completedTasks: 0, progress: 0
-      }]);
-      showToast('Project created successfully!');
+    try {
+      if (editingProject) {
+        const result = await updateProject(toStr(editingProject.id || editingProject._id), {
+          name: projectForm.name,
+          description: projectForm.description,
+          dueDate: projectForm.deadline,
+          priority: projectForm.priority,
+          status: statusLabel,
+        });
+        if (result.success) {
+          setProjects(prev => prev.map(p => toStr(p.id) === toStr(editingProject.id)
+            ? { ...p, ...result.project, id: result.project._id?.toString(), status: statusLabel }
+            : p));
+          showToast('Project updated successfully!');
+        }
+      } else {
+        const result = await createProject({
+          name: projectForm.name,
+          description: projectForm.description,
+          dueDate: projectForm.deadline,
+          priority: projectForm.priority,
+          status: statusLabel,
+        });
+        if (result.success) {
+          setProjects(prev => [{
+            ...result.project,
+            id: result.project._id?.toString(),
+            team: 0, tasks: 0, completedTasks: 0, progress: 0, status: statusLabel
+          }, ...prev]);
+          showToast('Project created successfully!');
+        }
+      }
+      setShowAddProject(false);
+    } catch (err) {
+      showToast('Failed to save project', 'error');
     }
-    setShowAddProject(false);
   };
 
-  const handleDeleteProject = (projectId) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-      setTasks(prev => prev.filter(t => t.projectId !== projectId));
+  const handleDeleteProject = async (projectId) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) return;
+    try {
+      await deleteProject(toStr(projectId));
+      setProjects(prev => prev.filter(p => toStr(p.id) !== toStr(projectId)));
+      setTasks(prev => prev.filter(t => toStr(t.projectId) !== toStr(projectId)));
       setSelectedProject(null);
       showToast('Project deleted', 'error');
+    } catch (err) {
+      showToast('Failed to delete project', 'error');
     }
   };
 
@@ -392,8 +451,10 @@ const Dashboard = () => {
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <div className="logo-icon">P</div>
-            {sidebarOpen && <span className="logo-text">Planora</span>}
+            <div className="logo-icon">
+              <LogoIcon />
+            </div>
+            {sidebarOpen && <LogoText className="logo-text" />}
           </div>
         </div>
         <nav className="sidebar-nav">
@@ -766,6 +827,27 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* ── Recent Activity ── */}
+            <div className="bento-activity card bento-card-inner">
+              <div className="bento-section-title">Recent Activity</div>
+              <div className="activity-list">
+                {recentActivity.length > 0 ? recentActivity.slice(0, 4).map((a, i) => (
+                  <div key={i} className="activity-item">
+                    <div className="activity-avatar" style={{ backgroundColor: a.color }}>{a.avatar}</div>
+                    <div className="activity-content">
+                      <p><strong>{a.user}</strong> {a.action} <span className="highlight">{a.item}</span></p>
+                      <span className="activity-time">{a.time}</span>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="empty-state" style={{ padding: '1rem' }}>
+                    <div className="empty-icon" style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>📭</div>
+                    <p style={{ margin: 0, fontSize: '0.85rem' }}>No recent activity</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* ── Deadlines ── */}
             <div className="bento-deadlines card bento-card-inner">
               <div className="bento-section-title">Deadlines</div>
@@ -785,27 +867,6 @@ const Dashboard = () => {
                   <div className="deadlines-empty">
                     <span style={{ fontSize: '1rem' }}>🗓️</span>
                     <p>No upcoming deadlines</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ── Recent Activity ── */}
-            <div className="bento-activity card bento-card-inner">
-              <div className="bento-section-title">Recent Activity</div>
-              <div className="activity-list">
-                {recentActivity.length > 0 ? recentActivity.slice(0, 4).map((a, i) => (
-                  <div key={i} className="activity-item">
-                    <div className="activity-avatar" style={{ backgroundColor: a.color }}>{a.avatar}</div>
-                    <div className="activity-content">
-                      <p><strong>{a.user}</strong> {a.action} <span className="highlight">{a.item}</span></p>
-                      <span className="activity-time">{a.time}</span>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="empty-state" style={{ padding: '1rem' }}>
-                    <div className="empty-icon" style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>📭</div>
-                    <p style={{ margin: 0, fontSize: '0.85rem' }}>No recent activity</p>
                   </div>
                 )}
               </div>

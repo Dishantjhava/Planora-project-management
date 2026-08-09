@@ -6,10 +6,12 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import './Notifications.css';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 
 // Axios Instance Configuration
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: '/api',
   withCredentials: true
 });
 
@@ -302,8 +304,10 @@ const Notifications = () => {
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <div className="logo-icon">P</div>
-            {sidebarOpen && <span className="logo-text">Planora</span>}
+            <div className="logo-icon">
+              <LogoIcon />
+            </div>
+            {sidebarOpen && <LogoText className="logo-text" />}
           </div>
         </div>
         <nav className="sidebar-nav">

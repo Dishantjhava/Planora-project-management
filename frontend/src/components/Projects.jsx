@@ -5,6 +5,8 @@ import { createProject, updateProject, deleteProject, createTask, deleteTask, up
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { SkeletonDashboard } from './Skeleton';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableTaskItem } from './SortableTaskItem';
@@ -13,7 +15,7 @@ const TASK_CATEGORIES = ['Design','Development','Testing','Research','Documentat
 
 const Projects = () => {
   const { logout, user } = useAuth();
-  const { projects, setProjects, tasks, setTasks, teamMembers, loading, projectsPagination, fetchMoreProjects, notifications = [] } = useData();
+  const { projects, setProjects, tasks, setTasks, teamMembers, loading, projectsPagination, fetchMoreProjects, fetchData, notifications = [] } = useData();
   const navigate = useNavigate();
   const unreadCount = notifications.filter(n => !n.read).length;
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -328,8 +330,10 @@ const Projects = () => {
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <div className="logo-icon">P</div>
-            {sidebarOpen && <span className="logo-text">Planora</span>}
+            <div className="logo-icon">
+              <LogoIcon />
+            </div>
+            {sidebarOpen && <LogoText className="logo-text" />}
           </div>
         </div>
         <nav className="sidebar-nav">

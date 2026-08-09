@@ -19,6 +19,8 @@ import {
   Line
 } from 'recharts';
 import './Reports.css';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 
 const REPORTS_COLORS = {
   blue: '#6366f1',
@@ -385,8 +387,10 @@ const Reports = () => {
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <div className="logo-icon">P</div>
-            {sidebarOpen && <span className="logo-text">Planora</span>}
+            <div className="logo-icon">
+              <LogoIcon />
+            </div>
+            {sidebarOpen && <LogoText className="logo-text" />}
           </div>
         </div>
         <nav className="sidebar-nav">

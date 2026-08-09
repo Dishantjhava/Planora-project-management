@@ -12,6 +12,8 @@ import EmailIcon from './icons/EmailIcon';
 import LockIcon from './icons/LockIcon';
 import EyeIcon from './icons/EyeIcon';
 import EyeOffIcon from './icons/EyeOffIcon';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 
 const registerSchema = z.object({
   name: z.string().min(1, 'Full name is required'),
@@ -189,8 +191,10 @@ const Register = () => {
         {/* Top nav */}
         <div className="rg-nav">
           <div className="rg-logo">
-            <div className="rg-logo-icon">P</div>
-            <span className="rg-logo-text">Planora</span>
+            <div className="rg-logo-icon">
+              <LogoIcon />
+            </div>
+            <LogoText className="rg-logo-text" />
           </div>
           <div className="rg-nav-right">
             <span className="rg-nav-label">Already have an account?</span>
@@ -268,7 +272,9 @@ const Register = () => {
             <div className="rg-preview-body">
               {/* Sidebar strip */}
               <div className="rg-prev-sidebar">
-                <div className="rg-prev-logo">P</div>
+                <div className="rg-prev-logo">
+                  <LogoIcon />
+                </div>
                 <div className="rg-prev-nav">
                   {['🏠','📊','📋','👥','📅'].map((icon, i) => (
                     <div key={i} className={`rg-prev-item${i === 0 ? ' active' : ''}`}>{icon}</div>
@@ -313,8 +319,10 @@ const Register = () => {
 
           {/* Mobile logo */}
           <div className="rg-mobile-logo">
-            <div className="rg-logo-icon-sm">P</div>
-            <span>Planora</span>
+            <div className="rg-logo-icon-sm">
+              <LogoIcon />
+            </div>
+            <LogoText style={{ fontSize: '1.25rem', letterSpacing: '-0.3px', color: 'white' }} />
           </div>
 
           <div className="rg-form-header">

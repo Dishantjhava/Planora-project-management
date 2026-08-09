@@ -11,6 +11,8 @@ import './Calendar.css';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { createTask } from '../services/api.js';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 
 // ── Color maps ────────────────────────────────────────────────────────────────
 const PROJECT_COLORS = {
@@ -409,8 +411,10 @@ const Calendar = () => {
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <div className="logo-icon">P</div>
-            {sidebarOpen && <span className="logo-text">Planora</span>}
+            <div className="logo-icon">
+              <LogoIcon />
+            </div>
+            {sidebarOpen && <LogoText className="logo-text" />}
           </div>
         </div>
         <nav className="sidebar-nav">

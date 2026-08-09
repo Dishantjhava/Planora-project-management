@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { removeTeamMember } from '../services/api.js';
 import { SkeletonDashboard } from './Skeleton';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 
 const AVATAR_COLORS = [
   '#6366f1', '#10b981', '#f59e0b', '#ec4899',
@@ -151,8 +153,10 @@ const Team = () => {
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <div className="logo-icon">P</div>
-            {sidebarOpen && <span className="logo-text">Planora</span>}
+            <div className="logo-icon">
+              <LogoIcon />
+            </div>
+            {sidebarOpen && <LogoText className="logo-text" />}
           </div>
         </div>
         <nav className="sidebar-nav">

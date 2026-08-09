@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useGoogleLogin } from '@react-oauth/google';
 
 import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 import AlertIcon from './icons/AlertIcon';
 import EmailIcon from './icons/EmailIcon';
 import LockIcon from './icons/LockIcon';
@@ -224,8 +225,10 @@ const Login = () => {
         <div className="cu-blob cu-blob-2"></div>
         <div className="cu-nav">
           <div className="cu-logo">
-            <div className="cu-logo-icon" style={{ fontSize: '1.2rem', fontWeight: 800 }}>P</div>
-            <span className="cu-logo-text">Planora</span>
+            <div className="cu-logo-icon">
+              <LogoIcon />
+            </div>
+            <LogoText className="cu-logo-text" />
           </div>
           <div className="cu-nav-right">
             <span className="cu-nav-label">New to Planora?</span>
@@ -329,8 +332,10 @@ const Login = () => {
         <div className="cu-right-blob cu-right-blob-2"></div>
         <div className="cu-form-box">
           <div className="cu-mobile-logo">
-            <div className="cu-logo-icon-sm" style={{ fontSize: '1rem', fontWeight: 800 }}>P</div>
-            <span>Planora</span>
+            <div className="cu-logo-icon-sm">
+              <LogoIcon />
+            </div>
+            <LogoText style={{ fontSize: '1.25rem', letterSpacing: '-0.3px', color: 'white' }} />
           </div>
           <div className="cu-form-header">
             <h2>Welcome back</h2>

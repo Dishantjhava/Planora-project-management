@@ -20,9 +20,12 @@ html{scroll-behavior:smooth}
 @keyframes pulse-indicator{0%,100%{opacity:1}50%{opacity:.6}}
 
 /* ── Layout ─────────────────────────── */
-.dashboard-container{
-  display:flex; min-height:100vh; position:relative; overflow:hidden;
-  background:radial-gradient(circle at top right,#0f2027,#203a43,#2c5364);
+.dashboard-container {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, #050a14 0%, #0a0f1e 35%, #0d1528 65%, #07111f 100%);
 }
 .dashboard-container::before,.dashboard-container::after{
   content:''; position:fixed; border-radius:50%; filter:blur(100px);

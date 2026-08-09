@@ -20,7 +20,7 @@ function App() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ErrorBoundary>
         <Toaster position="top-right" />
         <Routes>

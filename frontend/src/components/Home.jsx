@@ -4,6 +4,8 @@ import './Home.css';
 import { createProject, createTask } from '../services/api.js';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 
 const DEFAULT_PROJECTS = [
   { id: 1, name: 'Website Redesign',       progress: 75, status: 'In Progress', team: 5,  deadline: '2026-02-15', priority: 'high',   tasks: 24, completedTasks: 18, description: 'Complete redesign of company website with modern UI/UX' },
@@ -170,8 +172,10 @@ const handleQuickCreateTask = async () => {
         <div className="sidebar-header">
           <div className="logo">
             {/* FIXED: was TF, now P */}
-            <div className="logo-icon">P</div>
-            {sidebarOpen && <span className="logo-text">Planora</span>}
+            <div className="logo-icon">
+              <LogoIcon />
+            </div>
+            {sidebarOpen && <LogoText className="logo-text" />}
           </div>
         </div>
         <nav className="sidebar-nav">
