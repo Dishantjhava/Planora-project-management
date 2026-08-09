@@ -5,9 +5,11 @@ import { useData } from '../context/DataContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import './Settings.css';
+import LogoIcon from './icons/LogoIcon';
+import LogoText from './icons/LogoText';
 
 // ── Axios instance ──────────────────────────────────────────────────────────
-const api = axios.create({ baseURL: 'http://localhost:5000/api', withCredentials: true });
+const api = axios.create({ baseURL: '/api', withCredentials: true });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('planora_token') || localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -406,8 +408,8 @@ const Settings = () => {
     <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
       <div className="sidebar-header">
         <div className="logo">
-          <div className="logo-icon">P</div>
-          {sidebarOpen && <span className="logo-text">Planora</span>}
+          <div className="logo-icon"><LogoIcon /></div>
+          {sidebarOpen && <LogoText className="logo-text" />}
         </div>
       </div>
       <nav className="sidebar-nav">

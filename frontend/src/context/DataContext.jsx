@@ -137,12 +137,26 @@ export const DataProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    const socket = io('http://localhost:5000', { withCredentials: true });
+    // Only connect socket when user is authenticated — avoids ERR_CONNECTION_REFUSED on login page
+    const userStr = localStorage.getItem('planora_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    if (!user) return;
+
+    const socket = io('http://localhost:5000', {
+      withCredentials: true,
+      reconnectionAttempts: 3,          // stop after 3 failed tries (no console spam)
+      reconnectionDelay: 2000,
+      timeout: 5000,
+    });
+
+    // Silently handle backend-offline — no red console errors
+    socket.on('connect_error', () => {
+      // Backend not running — silently ignore, socket will retry up to 3x then stop
+    });
 
     socket.on('task_created', (newTask) => {
       setTasks(prev => {
         const formatted = formatTask(newTask, teamMembers);
-        // Avoid duplicates if this client created it and already added it
         if (prev.some(t => t.id === formatted.id)) return prev;
         return [formatted, ...prev];
       });
@@ -159,8 +173,6 @@ export const DataProvider = ({ children }) => {
       setTasks(prev => prev.filter(t => t.id !== taskId));
     });
 
-    const userStr = localStorage.getItem('planora_user');
-    const user = userStr ? JSON.parse(userStr) : null;
     if (user) {
       socket.on(`new_notification_${user._id}`, (notification) => {
         setNotifications(prev => [{
